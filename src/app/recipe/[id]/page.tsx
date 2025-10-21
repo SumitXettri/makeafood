@@ -1,133 +1,148 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import VoiceReader from "@/components/VoiceReader";
-import { fetchRecipeById } from "@/lib/fetchRecipes";
-
-interface Ingredient {
-  name: string;
-  amount: number;
-  unit: string;
-}
 
 interface Recipe {
   id: string;
   title: string;
   image: string;
-  instructions: string;
   category: string;
   area: string;
-  ingredients: Ingredient[];
+  instructions: string;
+  source: string;
+  description: string;
 }
 
-export default function RecipeDetailPage() {
-  const { id } = useParams<{ id: string }>();
+interface RelatedRecipe {
+  id: string;
+  title: string;
+  image: string;
+}
+
+// Separate RelatedRecipes component
+function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
+  const router = useRouter();
+
+  // Don't return null, instead show a message or nothing
+  if (!recipes?.length) {
+    return (
+      <div className="mt-12 text-center text-gray-500">
+        No related recipes available
+      </div>
+    );
+  }
+
+  return (
+    <div className="mt-12">
+      <h2 className="text-2xl font-semibold mb-4">Related Recipes</h2>
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
+        {recipes.map((recipe) => (
+          <div
+            key={recipe.id}
+            onClick={() => router.push(`/recipe/${recipe.id}`)}
+            className="cursor-pointer bg-white rounded-xl shadow-md overflow-hidden hover:scale-[1.02] transition-transform"
+          >
+            <img
+              src={recipe.image}
+              alt={recipe.title}
+              className="w-full h-48 object-cover"
+            />
+            <div className="p-3">
+              <h3 className="text-md font-medium text-gray-800 line-clamp-2">
+                {recipe.title}
+              </h3>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+export default function RecipeDetails() {
+  const params = useParams();
+  const router = useRouter();
   const [recipe, setRecipe] = useState<Recipe | null>(null);
+  const [related, setRelated] = useState<RelatedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!id) return;
-    const loadRecipe = async () => {
-      setLoading(true);
-      const recipeData = await fetchRecipeById(id);
-      if (recipeData) {
-        setRecipe(recipeData);
-        setError(null);
-      } else {
-        setError("Recipe not found");
+    async function fetchRecipe() {
+      if (!params?.id) {
+        setError("No recipe ID provided");
+        setLoading(false);
+        return;
       }
-      setLoading(false);
-    };
-    loadRecipe();
-  }, [id]);
+
+      setLoading(true);
+      setError(null);
+
+      try {
+        const res = await fetch(`/api/recipes/${params.id}`);
+        const data = await res.json();
+
+        // Add debug logging
+        console.log("API Response:", data);
+
+        if (data.error) throw new Error(data.error);
+
+        setRecipe(data.recipe);
+
+        // Add more detailed checking for related recipes
+        if (data.related) {
+          console.log("Related recipes:", data.related);
+          setRelated(Array.isArray(data.related) ? data.related : []);
+        } else {
+          console.log("No related recipes in response");
+          setRelated([]);
+        }
+      } catch (err) {
+        console.error("Error fetching recipe:", err);
+        setError(err instanceof Error ? err.message : "Failed to fetch recipe");
+        setRecipe(null);
+        setRelated([]);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    fetchRecipe();
+  }, [params?.id]);
 
   if (loading)
-    return (
-      <div className="flex flex-col justify-center items-center min-h-screen bg-gradient-to-br from-orange-50 to-red-50 py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-t-4 border-b-4 border-orange-500 mb-3"></div>
-        <p className="text-gray-600 text-sm font-medium">
-          Loading your delicious recipe...
-        </p>
-      </div>
-    );
-
-  if (error || !recipe)
-    return (
-      <div className="max-w-2xl mx-auto p-6 text-center bg-white rounded-2xl shadow-lg mt-12">
-        <div className="text-6xl mb-4">🍽️</div>
-        <h2 className="text-2xl font-bold text-gray-800 mb-2">
-          {error || "Recipe Not Found"}
-        </h2>
-        <p className="text-gray-600 mb-5 text-sm">
-          We couldn’t find the recipe you’re looking for.
-        </p>
-      </div>
-    );
+    return <p className="text-center mt-10">Loading recipe details...</p>;
+  if (error) return <p className="text-center mt-10 text-red-500">{error}</p>;
+  if (!recipe) return <p className="text-center mt-10">Recipe not found.</p>;
 
   return (
-    <div className="max-w-4xl mx-auto p-4 md:p-6 bg-white rounded-2xl shadow-lg my-6 transition-all duration-300 hover:shadow-xl">
-      {/* Hero Image */}
-      <div className="relative overflow-hidden rounded-2xl shadow-lg mb-6 group">
+    <div className="max-w-4xl mx-auto p-6">
+      {/* Back button */}
+      <button
+        onClick={() => router.back()}
+        className="px-4 py-2 mb-4 bg-orange-500 text-white rounded-lg hover:bg-orange-600"
+      >
+        ← Back
+      </button>
+
+      {/* Main recipe section */}
+      <div className="bg-white shadow-lg rounded-xl p-6">
         <img
           src={recipe.image}
           alt={recipe.title}
-          className="w-full h-72 object-cover transition-transform duration-500 group-hover:scale-105"
-          loading="eager"
-          onError={(e) => (e.currentTarget.src = "/fallback-recipe.jpg")}
+          className="w-full h-72 object-cover rounded-xl shadow-md"
         />
-        <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
-        <div className="absolute bottom-4 left-4 text-white space-y-1">
-          <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold leading-tight drop-shadow">
-            {recipe.title}
-          </h1>
-          <div className="flex flex-wrap gap-2 mt-2">
-            <span className="bg-orange-600 text-white text-xs sm:text-sm font-medium px-3 py-1 rounded-full shadow-sm">
-              {recipe.category}
-            </span>
-            <span className="bg-amber-500 text-white text-xs sm:text-sm font-medium px-3 py-1 rounded-full shadow-sm">
-              {recipe.area}
-            </span>
-          </div>
-        </div>
+        <h1 className="text-3xl font-bold mt-6">{recipe.title}</h1>
+        <p className="text-gray-600 mt-2">
+          Category: {recipe.category} | Cuisine: {recipe.area}
+        </p>
+        <VoiceReader text={recipe.instructions} />
+        <p className="mt-6 text-sm text-gray-500">Source: {recipe.source}</p>
       </div>
 
-      {/* Ingredients */}
-      {recipe.ingredients.length > 0 && (
-        <section className="mb-8 p-4 bg-green-50 rounded-xl border border-green-200">
-          <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-            <span className="text-green-600">🛒</span> Ingredients
-          </h2>
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-            {recipe.ingredients.map((item, idx) => (
-              <div
-                key={idx}
-                className="flex items-start gap-3 p-3 bg-white rounded-lg shadow-sm hover:shadow border-l-2 border-green-400 transition"
-              >
-                <div className="w-2 h-2 bg-green-500 rounded-full mt-2 flex-shrink-0"></div>
-                <div>
-                  <strong className="text-sm text-gray-900 block leading-tight">
-                    {item.name}
-                  </strong>
-                  <span className="text-gray-600 text-xs">
-                    {item.amount} {item.unit}
-                  </span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </section>
-      )}
-
-      {/* Instructions */}
-      <section className="mb-8 p-4 bg-blue-50 rounded-xl border border-blue-200">
-        <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center gap-2">
-          <span className="text-blue-600">👩‍🍳</span> Instructions
-        </h2>
-        <div className="bg-white rounded-lg p-4 shadow-sm">
-          <VoiceReader text={recipe.instructions} />
-        </div>
-      </section>
+      {/* Always render RelatedRecipes component */}
+      <RelatedRecipes recipes={related} />
     </div>
   );
 }
