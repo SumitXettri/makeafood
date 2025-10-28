@@ -32,6 +32,19 @@ export async function GET(
         );
 
       const meal = data.meals[0];
+
+      // Extract ingredients from MealDB's numbered properties
+      const ingredients = [];
+      for (let i = 1; i <= 20; i++) {
+        const ingredient = meal[`strIngredient${i}`];
+        const measure = meal[`strMeasure${i}`];
+        if (ingredient && ingredient.trim()) {
+          ingredients.push(
+            `${measure?.trim() || ""} ${ingredient.trim()}`.trim()
+          );
+        }
+      }
+
       const recipe = {
         id,
         title: meal.strMeal,
@@ -40,6 +53,10 @@ export async function GET(
         area: meal.strArea,
         instructions: meal.strInstructions,
         source: "MealDB",
+        ingredients, // Add ingredients array
+        prep_time_minutes: 0,
+        cook_time_minutes: 0,
+        servings: 0,
       };
 
       // Fetch related by category
@@ -94,6 +111,13 @@ export async function GET(
         area: data.cuisines?.[0] || "Unknown",
         instructions: data.instructions || "No instructions available.",
         source: "Spoonacular",
+        ingredients:
+          data.extendedIngredients?.map((ing: any) =>
+            `${ing.amount} ${ing.unit} ${ing.name}`.trim()
+          ) || [],
+        prep_time_minutes: data.preparationMinutes || 0,
+        cook_time_minutes: data.cookingMinutes || 0,
+        servings: data.servings || 0,
       };
 
       // Fetch related recipes using Spoonacular's search API

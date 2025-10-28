@@ -4,6 +4,24 @@ import { NextResponse } from "next/server";
 // Simple in-memory cache (per server instance, resets on restart)
 const cache: { [key: string]: { data: any; expires: number } } = {};
 
+// Add keyword index variable
+let keywordIndex = 0;
+
+const MEALDB_RANDOM = "https://www.themealdb.com/api/json/v1/1/random.php";
+
+const mealKeywords = [
+  "chicken",
+  "pasta",
+  "beef",
+  "rice",
+  "salad",
+  "fish",
+  "soup",
+  "vegetable",
+  "dessert",
+  "egg",
+];
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("query") || ""; // empty = random
@@ -18,31 +36,49 @@ export async function GET(req: Request) {
   }
 
   try {
-    const results: any[] = [];
-
     const spoonUrl = query
       ? `https://api.spoonacular.com/recipes/complexSearch?query=${encodeURIComponent(
           query
         )}&number=8&addRecipeInformation=true&instructionsRequired=true&fillIngredients=true&apiKey=${apiKey}`
-      : `https://api.spoonacular.com/recipes/random?number=8&apiKey=${apiKey}`;
+      : `https://api.spoonacular.com/recipes/random?number=4&apiKey=${apiKey}`; // Keep at 4 for Spoonacular
 
-    const mealUrl = query
-      ? `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(
-          query
-        )}`
-      : `https://www.themealdb.com/api/json/v1/1/random.php`;
+    let mealUrl: string;
+    let mealData: any;
 
-    // Fetch both APIs in parallel
-    const [spoonRes, mealRes] = await Promise.all([
-      fetch(spoonUrl),
-      fetch(mealUrl),
-    ]);
+    if (query) {
+      mealUrl = `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(
+        query
+      )}`;
+      const mealRes = await fetch(mealUrl);
+      mealData = await mealRes.json();
+    } else {
+      // Increase to 8 random recipes from MealDB
+      const randomRecipePromises = Array(8)
+        .fill(null)
+        .map(async () => {
+          const response = await fetch(MEALDB_RANDOM);
+          const data = await response.json();
+          return data.meals?.[0];
+        });
 
-    // Spoonacular
+      const randomMeals = await Promise.all(randomRecipePromises);
+      mealData = { meals: randomMeals.filter(Boolean) };
+    }
+
+    // Fetch Spoonacular separately
+    const spoonRes = await fetch(spoonUrl);
+    let results: any[] = [];
+
+    // Set different limits for each source
+    const spoonacularLimit = 4; // 4 recipes from Spoonacular
+    const mealdbLimit = 8; // 8 recipes from MealDB
+
+    // Process Spoonacular results
     if (spoonRes.ok) {
       const spoonData = await spoonRes.json();
-      const spoonRecipes = (spoonData.results || spoonData.recipes || []).map(
-        (r: any) => ({
+      const spoonRecipes = (spoonData.results || spoonData.recipes || [])
+        .slice(0, spoonacularLimit)
+        .map((r: any) => ({
           id: `s-${r.id}`,
           title: r.title,
           image: r.image,
@@ -51,24 +87,60 @@ export async function GET(req: Request) {
             r.summary?.replace(/<[^>]+>/g, "").slice(0, 150) + "…" ||
             r.instructions?.slice(0, 150) + "…" ||
             "Description coming soon.",
-        })
-      );
+          // Add ingredients from extendedIngredients
+          ingredients:
+            r.extendedIngredients?.map((ing: any) =>
+              `${ing.amount} ${ing.unit} ${ing.name}`.trim()
+            ) || [],
+          prep_time_minutes: r.preparationMinutes || 0,
+          cook_time_minutes: r.cookingMinutes || 0,
+          servings: r.servings || 0,
+          difficulty_level: r.difficulty || "Medium",
+        }));
       results.push(...spoonRecipes);
     }
 
-    // MealDB
-    if (mealRes.ok) {
-      const mealData = await mealRes.json();
-      const mealRecipes = (mealData.meals || []).map((m: any) => ({
-        id: `m-${m.idMeal}`,
-        title: m.strMeal,
-        image: m.strMealThumb,
-        source: "MealDB",
-        description:
-          m.strInstructions?.slice(0, 150) + "…" || "Description coming soon.",
-      }));
+    // Process MealDB results
+    if (mealData.meals?.length) {
+      const mealRecipes = mealData.meals.slice(0, mealdbLimit).map((m: any) => {
+        // Extract ingredients from MealDB's numbered properties
+        const ingredients: string[] = [];
+        for (let i = 1; i <= 20; i++) {
+          const ingredient = m[`strIngredient${i}`];
+          const measure = m[`strMeasure${i}`];
+          if (ingredient && ingredient.trim()) {
+            ingredients.push(
+              `${measure?.trim() || ""} ${ingredient.trim()}`.trim()
+            );
+          }
+        }
+
+        return {
+          id: `m-${m.idMeal}`,
+          title: m.strMeal,
+          image: m.strMealThumb,
+          source: "MealDB",
+          description:
+            m.strInstructions?.slice(0, 150) + "…" ||
+            "Description coming soon.",
+          ingredients,
+          // Add additional recipe details
+          prep_time_minutes: 0, // MealDB doesn't provide this
+          cook_time_minutes: 0, // MealDB doesn't provide this
+          servings: 0, // MealDB doesn't provide this
+          difficulty_level: "Medium", // MealDB doesn't provide this
+        };
+      });
       results.push(...mealRecipes);
     }
+
+    // Shuffle results when no query to mix sources
+    if (!query) {
+      results = [...results].sort(() => Math.random() - 0.5);
+    }
+
+    // Return all 12 recipes (4 Spoonacular + 8 MealDB)
+    results = [...results].slice(0, 12);
 
     // Cache for 3 minutes
     cache[cacheKey] = { data: results, expires: now + 3 * 60 * 1000 };

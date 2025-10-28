@@ -25,9 +25,9 @@ export default function HomePage() {
   const todaySpecials = [
     {
       id: 1,
-      title: "Creamy Tuscan Salmon",
-      image:
-        "https://images.unsplash.com/photo-1467003909585-2f8a72700288?w=500&q=80",
+      idd: "s-646512",
+      title: "Salmon Caesar Salad",
+      image: "https://img.spoonacular.com/recipes/646512-556x370.jpg",
       time: "25 min",
       difficulty: "Medium",
       rating: 4.8,
@@ -36,6 +36,7 @@ export default function HomePage() {
     },
     {
       id: 2,
+      idd: "m-52814",
       title: "Thai Green Curry",
       image:
         "https://images.unsplash.com/photo-1455619452474-d2be8b1e70cd?w=500&q=80",
@@ -47,9 +48,9 @@ export default function HomePage() {
     },
     {
       id: 3,
-      title: "Classic Tiramisu",
-      image:
-        "https://images.unsplash.com/photo-1571877227200-a0d98ea607e9?w=500&q=80",
+      idd: "s-631877",
+      title: "5 minute Tiramisu",
+      image: "https://img.spoonacular.com/recipes/631877-312x231.jpg",
       time: "45 min",
       difficulty: "Hard",
       rating: 4.7,
@@ -58,14 +59,48 @@ export default function HomePage() {
     },
     {
       id: 4,
-      title: "Spicy Ramen Bowl",
-      image:
-        "https://images.unsplash.com/photo-1569718212165-3a8278d5f624?w=500&q=80",
+      idd: "s-648506",
+      title: "Sushi",
+      image: "https://img.spoonacular.com/recipes/648506-556x370.jpg",
       time: "20 min",
       difficulty: "Easy",
       rating: 4.6,
       cuisine: "Japanese",
       color: "from-red-400 to-pink-500",
+    },
+    {
+      id: 5,
+      idd: "m-53036",
+      title: "Boxty Breakfast",
+      image:
+        "https://images.unsplash.com/photo-1504674900247-0877df9cc836?w=500&q=80",
+      time: "35 min",
+      difficulty: "Medium",
+      rating: 4.5,
+      cuisine: "Irish",
+      color: "from-yellow-400 to-amber-600",
+    },
+    {
+      id: 6,
+      idd: "m-52947",
+      title: "Ma Po Tofu",
+      image: "https://www.themealdb.com/images/media/meals/1525874812.jpg",
+      time: "40 min",
+      difficulty: "Hard",
+      rating: 4.8,
+      cuisine: "Chinese",
+      color: "from-amber-400 to-yellow-600",
+    },
+    {
+      id: 7,
+      idd: "s-649349",
+      title: "Vegan Buddha Bowl",
+      image: "https://img.spoonacular.com/recipes/649349-556x370.jpg",
+      time: "15 min",
+      difficulty: "Easy",
+      rating: 4.9,
+      cuisine: "Vegan",
+      color: "from-green-400 to-lime-600",
     },
   ];
 
@@ -196,6 +231,7 @@ export default function HomePage() {
               <div
                 key={recipe.id}
                 className="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2"
+                onClick={() => router.push(`/recipe/${recipe.idd}`)}
                 onMouseEnter={() => setHoveredCard(recipe.id)}
                 onMouseLeave={() => setHoveredCard(null)}
               >

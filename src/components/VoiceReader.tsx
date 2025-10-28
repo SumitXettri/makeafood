@@ -15,13 +15,14 @@ const VoiceReader: React.FC<VoiceProps> = ({ text }) => {
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   // 🧹 Clean HTML into segments
+  // 🧹 Clean HTML into readable segments with line-break logic
   const parseHtmlToSegments = (html: string) => {
     if (!html) return [];
 
     const parser = new DOMParser();
     const doc = parser.parseFromString(html, "text/html");
 
-    // Prefer list items
+    // Prefer explicit list items first
     const listItems = Array.from(doc.querySelectorAll("li")).map(
       (li) => li.textContent?.trim() || ""
     );
@@ -33,7 +34,7 @@ const VoiceReader: React.FC<VoiceProps> = ({ text }) => {
       });
     }
 
-    // Otherwise split paragraphs
+    // Otherwise paragraphs
     const paragraphs = Array.from(doc.querySelectorAll("p")).map(
       (p) => p.textContent?.trim() || ""
     );
@@ -45,13 +46,20 @@ const VoiceReader: React.FC<VoiceProps> = ({ text }) => {
       });
     }
 
-    // Fallback: strip tags & split sentences
+    // Fallback: Handle plain text with "Step 1", "1.", etc.
     const plainText = doc.body.textContent || html.replace(/<[^>]+>/g, "");
-    return plainText
-      .split(/\. +/)
-      .map((s) => s.trim())
-      .filter(Boolean)
-      .map((s) => ({ original: s, words: s.split(/\s+/) }));
+
+    const stepPattern = /(?=\b(?:Step\s*\d+|[0-9]+\s*[\.\)]))|(?=\n+)/gi; // splits before "Step 1" or numbered steps
+
+    const lines = plainText
+      .split(stepPattern)
+      .map((line) => line.trim())
+      .filter(Boolean);
+
+    return lines.map((line) => {
+      const words = line.split(/\s+/).filter(Boolean);
+      return { original: line, words };
+    });
   };
 
   const segments = parseHtmlToSegments(text);
@@ -195,26 +203,25 @@ const VoiceReader: React.FC<VoiceProps> = ({ text }) => {
       </div>
 
       {/* Text with word highlighting */}
-      <div className="p-5 text-gray-800 leading-relaxed text-base sm:text-lg break-words min-h-80 overflow-y-auto">
-        <ol className=" space-y-3">
-          {segments.map((segment, sIdx) => (
-            <li key={sIdx}>
-              {segment.words.map((word, wIdx) => (
-                <span
-                  key={wIdx}
-                  className={`mx-0.5 ${
-                    currentSegmentIndex === sIdx && currentWordIndex === wIdx
-                      ? "bg-yellow-200 px-1 rounded"
-                      : ""
-                  }`}
-                >
-                  {word}
-                </span>
-              ))}
-            </li>
-          ))}
-        </ol>
-      </div>
+      <div
+        className="space-y-3 prose prose-gray max-w-none p-5"
+        dangerouslySetInnerHTML={{
+          __html: DOMPurify.sanitize(
+            segments
+              .map(
+                (segment, sIdx) =>
+                  `<p>${segment.words
+                    .map((word, wIdx) =>
+                      currentSegmentIndex === sIdx && currentWordIndex === wIdx
+                        ? `<span class="bg-yellow-200 px-1 rounded">${word}</span>`
+                        : word
+                    )
+                    .join(" ")}</p>`
+              )
+              .join("")
+          ),
+        }}
+      />
     </div>
   );
 };

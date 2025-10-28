@@ -354,9 +354,9 @@ export default function RecipeGenerator() {
               <div>
                 <h3 className="text-lg font-bold">🛒 Ingredients</h3>
                 <ul className="list-disc pl-5 text-gray-700 space-y-1">
-                  {recipe.ingredients.map((ing: string, i: number) => (
+                  {recipe?.ingredients?.map((ing: string, i: number) => (
                     <li key={i}>{ing}</li>
-                  ))}
+                  )) || <li>No ingredients available</li>}
                 </ul>
               </div>
 
@@ -364,11 +364,11 @@ export default function RecipeGenerator() {
               <div>
                 <h3 className="text-lg font-bold">📝 Instructions</h3>
                 <ol className="list-decimal pl-5 space-y-2">
-                  {recipe.instructions.map((step: string, i: number) => (
+                  {recipe?.instructions?.map((step: string, i: number) => (
                     <li key={i} className="text-gray-700">
                       {step}
                     </li>
-                  ))}
+                  )) || <li>No instructions available</li>}
                 </ol>
               </div>
             </div>
