@@ -10,9 +10,9 @@ const SPOONACULAR_KEY = process.env.SPOONACULAR_API_KEY;
 
 export async function GET(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ) {
-  const { id } = params;
+  const { id } = await context.params;
   if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   try {
