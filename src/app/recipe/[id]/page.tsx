@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef, useMemo } from "react";
+import { useEffect, useState, useRef } from "react";
 import DOMPurify from "dompurify";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -16,10 +16,10 @@ import {
   TrendingUp,
   CheckCircle2,
   ChevronRight,
-  Play,
   Volume2,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 
 interface Recipe {
   id: string;
@@ -93,7 +93,7 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
               className="group cursor-pointer bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
             >
               <div className="relative h-48 overflow-hidden">
-                <img
+                <Image
                   src={recipe.image}
                   alt={recipe.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
@@ -155,12 +155,12 @@ export default function RecipeDetails() {
   const [isPaused, setIsPaused] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  const segments = useMemo(() => {
-    if (!recipe?.instructions) return [];
-    return recipe.instructions.split("\n").map((line) => ({
-      words: line.trim().split(/\s+/).filter(Boolean),
-    }));
-  }, [recipe?.instructions]);
+  // const segments = useMemo(() => {
+  //   if (!recipe?.instructions) return [];
+  //   return recipe.instructions.split("\n").map((line) => ({
+  //     words: line.trim().split(/\s+/).filter(Boolean),
+  //   }));
+  // }, [recipe?.instructions]);
 
   const stop = () => {
     window.speechSynthesis.cancel();
@@ -176,6 +176,9 @@ export default function RecipeDetails() {
       alert("Text-to-speech not supported. Try Chrome or Edge.");
       return;
     }
+    console.log(isPaused);
+    console.log(currentSegmentIndex);
+    console.log(currentWordIndex);
 
     window.speechSynthesis.cancel(); // Stop any ongoing speech
 
@@ -334,13 +337,14 @@ export default function RecipeDetails() {
     );
   }
 
-  const totalTime =
-    (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0);
+  // const totalTime =
+  //   (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0);
+
   const instructions = recipe.instructions
     .split("\n")
     .filter((step) => step.trim());
 
-  const sanitizedText = DOMPurify.sanitize(recipe.instructions);
+  // const sanitizedText = DOMPurify.sanitize(recipe.instructions);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 py-8 px-4 sm:px-6">
@@ -358,7 +362,7 @@ export default function RecipeDetails() {
         <div className="bg-white shadow-2xl rounded-3xl overflow-hidden">
           {/* Hero Image */}
           <div className="relative h-[400px] sm:h-[500px] overflow-hidden">
-            <img
+            <Image
               src={recipe.image}
               alt={recipe.title}
               className="w-full h-full object-cover"

@@ -10,12 +10,10 @@ import {
   ChevronRight,
   Leaf,
   Pizza,
-  Plus,
-  TrendingUp,
-  Menu as MenuIcon,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
+import Image from "next/image";
 
 export default function HomePage() {
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
@@ -153,6 +151,7 @@ export default function HomePage() {
 
   const handleSearch = (query: string) => {
     if (!query.trim()) return;
+    console.log("Searching for:", hoveredCard);
     router.push(`/search?query=${encodeURIComponent(query)}`);
   };
 
@@ -236,7 +235,7 @@ export default function HomePage() {
                 onMouseLeave={() => setHoveredCard(null)}
               >
                 <div className="relative h-56 overflow-hidden">
-                  <img
+                  <Image
                     src={recipe.image}
                     alt={recipe.title}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"

@@ -11,6 +11,7 @@ import {
   Search,
   ChevronRight,
 } from "lucide-react";
+import Image from "next/image";
 
 interface Recipe {
   id: string;
@@ -231,7 +232,7 @@ export default function RecipeList({ query = "" }: RecipeListProps) {
               >
                 {/* Image Section */}
                 <div className="relative h-56 overflow-hidden">
-                  <img
+                  <Image
                     src={recipe.image}
                     alt={recipe.title}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"

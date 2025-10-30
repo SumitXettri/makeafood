@@ -19,17 +19,17 @@ export default function RecipeGenerator() {
   };
 
   // Add ingredient (optional, but we’ll keep it simple)
-  const addIngredient = () => {
-    if (ingredients.length < 5) {
-      setIngredients([...ingredients, ""]);
-    }
-  };
+  // const addIngredient = () => {
+  //   if (ingredients.length < 5) {
+  //     setIngredients([...ingredients, ""]);
+  //   }
+  // };
 
   // Remove ingredient
-  const removeIngredient = (index: number) => {
-    if (ingredients.length <= 1) return;
-    setIngredients(ingredients.filter((_, i) => i !== index));
-  };
+  // const removeIngredient = (index: number) => {
+  //   if (ingredients.length <= 1) return;
+  //   setIngredients(ingredients.filter((_, i) => i !== index));
+  // };
 
   // Generate recipe
   const handleGenerate = async () => {

@@ -68,6 +68,7 @@ export async function POST(req: Request) {
       );
     }
   } catch (err) {
+    console.error("Generation Error:", err);
     return NextResponse.json(
       { error: "Failed to generate recipe" },
       { status: 500 }
