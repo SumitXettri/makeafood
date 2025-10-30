@@ -227,7 +227,7 @@ export default function RecipeList({ query = "" }: RecipeListProps) {
               <div
                 key={recipe.id}
                 onClick={() => router.push(`/recipe/${recipe.id}`)}
-                className="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2"
+                className="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
               >
                 {/* Image Section */}
                 <div className="relative h-56 overflow-hidden">
@@ -246,16 +246,16 @@ export default function RecipeList({ query = "" }: RecipeListProps) {
                     } rounded-full flex items-center justify-center hover:scale-110 transition-all shadow-lg z-10`}
                   >
                     <Heart
-                      className={
+                      className={`${
                         isFavorite ? "text-white fill-white" : "text-red-500"
-                      }
+                      } cursor-pointer`}
                       size={20}
                     />
                   </button>
 
                   {/* Difficulty Badge */}
                   {recipe.difficulty_level && (
-                    <div className="absolute top-4 left-4">
+                    <div className="absolute top-4 left-4 cursor-default">
                       <span
                         className={`px-3 py-1 ${getDifficultyColor(
                           recipe.difficulty_level
@@ -268,7 +268,7 @@ export default function RecipeList({ query = "" }: RecipeListProps) {
 
                   {/* Time Badge */}
                   {totalTime > 0 && (
-                    <div className="absolute bottom-4 left-4">
+                    <div className="absolute bottom-4 left-4 cursor-default">
                       <div className="flex items-center gap-1 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-gray-800">
                         <Clock size={14} className="text-orange-500" />
                         <span>{totalTime} min</span>
@@ -278,7 +278,7 @@ export default function RecipeList({ query = "" }: RecipeListProps) {
                 </div>
 
                 {/* Content Section */}
-                <div className="p-5">
+                <div className="p-5 cursor-pointer">
                   <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-orange-600 transition line-clamp-2">
                     {recipe.title}
                   </h3>
@@ -301,11 +301,10 @@ export default function RecipeList({ query = "" }: RecipeListProps) {
                           </span>
                         </div>
                       )}
-                      {recipe.servings && (
-                        <div className="text-xs text-gray-500">
-                          {recipe.servings} servings
-                        </div>
-                      )}
+
+                      <div className="text-xs text-gray-500">
+                        {recipe.servings ? recipe.servings : "1"} serving
+                      </div>
                     </div>
 
                     <ChevronRight

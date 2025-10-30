@@ -5,22 +5,8 @@ import { NextResponse } from "next/server";
 const cache: { [key: string]: { data: any; expires: number } } = {};
 
 // Add keyword index variable
-let keywordIndex = 0;
 
 const MEALDB_RANDOM = "https://www.themealdb.com/api/json/v1/1/random.php";
-
-const mealKeywords = [
-  "chicken",
-  "pasta",
-  "beef",
-  "rice",
-  "salad",
-  "fish",
-  "soup",
-  "vegetable",
-  "dessert",
-  "egg",
-];
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
