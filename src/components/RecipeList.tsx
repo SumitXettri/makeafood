@@ -233,6 +233,8 @@ export default function RecipeList({ query = "" }: RecipeListProps) {
                 {/* Image Section */}
                 <div className="relative h-56 overflow-hidden">
                   <Image
+                    width={120}
+                    height={120}
                     src={recipe.image}
                     alt={recipe.title}
                     className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
