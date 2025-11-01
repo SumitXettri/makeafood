@@ -1,40 +1,81 @@
 "use client";
 import { useState, useEffect } from "react";
+import {
+  Plus,
+  Trash2,
+  Send,
+  Volume2,
+  Square,
+  Settings,
+  User,
+  ChefHat,
+  Clock,
+  Users,
+  Sparkles,
+  History,
+  Youtube,
+  Bookmark,
+  Share2,
+  BookOpen,
+  Utensils,
+} from "lucide-react";
+
+interface Recipe {
+  title: string;
+  ingredients: string[];
+  instructions: string[];
+  prep_time?: string;
+  servings?: string;
+  difficulty?: string;
+  youtube_link?: string;
+}
 
 export default function RecipeGenerator() {
   const [ingredients, setIngredients] = useState<string[]>([""]);
-  const [recipe, setRecipe] = useState<any>(null);
+  const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [rate, setRate] = useState<number>(1);
   const [pitch, setPitch] = useState<number>(1);
   const [volume, setVolume] = useState<number>(1);
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
+  const [chatHistory, setChatHistory] = useState<
+    Array<{ type: "user" | "ai"; content: string }>
+  >([]);
 
-  // Update ingredient (only one input now)
+  // Update ingredient
   const handleIngredientChange = (index: number, value: string) => {
     const newIngredients = [...ingredients];
     newIngredients[index] = value;
     setIngredients(newIngredients);
   };
 
-  // Add ingredient (optional, but we’ll keep it simple)
-  // const addIngredient = () => {
-  //   if (ingredients.length < 5) {
-  //     setIngredients([...ingredients, ""]);
-  //   }
-  // };
+  // Add ingredient
+  const addIngredient = () => {
+    if (ingredients.length < 10) {
+      setIngredients([...ingredients, ""]);
+    }
+  };
 
   // Remove ingredient
-  // const removeIngredient = (index: number) => {
-  //   if (ingredients.length <= 1) return;
-  //   setIngredients(ingredients.filter((_, i) => i !== index));
-  // };
+  const removeIngredient = (index: number) => {
+    if (ingredients.length <= 1) return;
+    setIngredients(ingredients.filter((_, i) => i !== index));
+  };
 
   // Generate recipe
   const handleGenerate = async () => {
     const validIngredients = ingredients.filter((ing) => ing.trim() !== "");
     if (validIngredients.length === 0) return;
+
+    // Add user message to chat
+    setChatHistory((prev) => [
+      ...prev,
+      {
+        type: "user",
+        content: validIngredients.join(", "),
+      },
+    ]);
 
     setLoading(true);
     try {
@@ -44,7 +85,25 @@ export default function RecipeGenerator() {
         body: JSON.stringify({ ingredients: validIngredients }),
       });
       const data = await response.json();
-      setRecipe(data);
+
+      // Generate YouTube search link
+      const youtubeLink = `https://www.youtube.com/results?search_query=${encodeURIComponent(
+        data.title + " recipe"
+      )}`;
+
+      setRecipe({
+        ...data,
+        youtube_link: youtubeLink,
+      });
+
+      // Add AI response to chat
+      setChatHistory((prev) => [
+        ...prev,
+        {
+          type: "ai",
+          content: data.title,
+        },
+      ]);
     } catch (err) {
       console.error("Error generating recipe:", err);
     } finally {
@@ -116,268 +175,293 @@ export default function RecipeGenerator() {
     window.speechSynthesis.getVoices();
   }, []);
 
+  // New recipe reset
+  const handleNewRecipe = () => {
+    setIngredients([""]);
+    setRecipe(null);
+    setChatHistory([]);
+  };
+
   return (
-    <div className="flex h-screen bg-gray-50 text-gray-800 font-sans">
+    <div className="flex h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
       {/* LEFT SIDEBAR */}
-      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
+      <div className="w-72 bg-white/80 backdrop-blur-sm border-r border-orange-200 flex flex-col shadow-xl">
         {/* Logo / Title */}
-        <div className="p-6 border-b">
-          <h2 className="text-2xl font-extrabold text-blue-700 tracking-tight">
-            MakeAfood
-          </h2>
+        <div className="p-6 border-b border-orange-200 bg-gradient-to-r from-orange-500 to-red-500">
+          <div className="flex items-center gap-3">
+            <ChefHat className="text-white" size={32} />
+            <h2 className="text-2xl font-extrabold text-white tracking-tight">
+              MakeAfood
+            </h2>
+          </div>
+          <p className="text-white/90 text-sm mt-1">AI Recipe Generator</p>
         </div>
 
         {/* New Recipe Button */}
-        <div className="p-4 border-b">
+        <div className="p-4 border-b border-orange-100">
           <button
-            onClick={() => {
-              setIngredients([""]);
-              setRecipe(null);
-            }}
-            className="w-full py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm font-medium shadow-sm"
+            onClick={handleNewRecipe}
+            className="w-full py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:shadow-lg transition-all text-sm font-semibold shadow-md flex items-center justify-center gap-2"
           >
-            + New Recipe
+            <Plus size={18} />
+            New Recipe
           </button>
+        </div>
+
+        {/* Ingredients Input Section */}
+        <div className="p-4 border-b border-orange-100">
+          <h3 className="font-bold text-gray-700 mb-3 flex items-center gap-2">
+            <Utensils size={18} className="text-orange-500" />
+            Your Ingredients
+          </h3>
+          <div className="space-y-2 max-h-64 overflow-y-auto">
+            {ingredients.map((ingredient, index) => (
+              <div key={index} className="flex gap-2">
+                <input
+                  type="text"
+                  placeholder={`Ingredient ${index + 1}`}
+                  className="flex-1 px-3 py-2 border border-orange-200 rounded-lg focus:outline-none focus:border-orange-500 text-sm"
+                  value={ingredient}
+                  onChange={(e) =>
+                    handleIngredientChange(index, e.target.value)
+                  }
+                />
+                {ingredients.length > 1 && (
+                  <button
+                    onClick={() => removeIngredient(index)}
+                    className="p-2 text-red-500 hover:bg-red-50 rounded-lg transition"
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                )}
+              </div>
+            ))}
+          </div>
+          {ingredients.length < 10 && (
+            <button
+              onClick={addIngredient}
+              className="w-full mt-2 py-2 border-2 border-dashed border-orange-300 text-orange-600 rounded-lg hover:bg-orange-50 transition text-sm font-medium flex items-center justify-center gap-1"
+            >
+              <Plus size={16} />
+              Add Ingredient
+            </button>
+          )}
         </div>
 
         {/* History Section */}
         <div className="flex-1 p-4 overflow-y-auto text-sm">
-          <h3 className="font-semibold mb-3 text-gray-700">History</h3>
-          <ul className="space-y-1">
-            {["🍝 Pasta", "🥗 Salad", "🍛 Curry"].map((item, index) => (
-              <li
-                key={index}
-                className="p-2 rounded cursor-pointer hover:bg-gray-100 transition-colors"
-              >
-                {item}
-              </li>
-            ))}
-          </ul>
+          <h3 className="font-semibold mb-3 text-gray-700 flex items-center gap-2">
+            <History size={18} className="text-orange-500" />
+            Recent Recipes
+          </h3>
+          <div className="space-y-2">
+            {chatHistory
+              .filter((msg) => msg.type === "ai")
+              .slice(-5)
+              .map((item, index) => (
+                <div
+                  key={index}
+                  className="p-3 rounded-lg bg-orange-50 hover:bg-orange-100 transition-colors cursor-pointer border border-orange-100"
+                >
+                  <p className="text-gray-800 font-medium text-xs line-clamp-2">
+                    {item.content}
+                  </p>
+                </div>
+              ))}
+            {chatHistory.filter((msg) => msg.type === "ai").length === 0 && (
+              <p className="text-gray-500 text-xs italic">No history yet</p>
+            )}
+          </div>
         </div>
       </div>
-
       {/* MIDDLE PANEL - Chat UI */}
-      <div className="flex-1 flex flex-col border-r border-gray-200 bg-white">
-        <div className="flex-1 p-6 overflow-y-auto space-y-6">
-          {/* User Message */}
-          {ingredients[0] && !loading && !recipe && (
-            <div className="bg-blue-100 text-blue-800 p-4 rounded-lg max-w-3xl mx-auto rounded-br-none">
-              <strong>You:</strong> {ingredients.filter(Boolean).join(", ")}
-            </div>
-          )}
-
-          {/* AI Thinking */}
-          {loading && (
-            <div className="bg-gray-100 p-4 rounded-lg max-w-3xl mx-auto animate-pulse">
-              🤖 Generating your recipe...
-            </div>
-          )}
-
-          {/* AI Response Preview */}
-          {recipe && (
-            <div className="bg-gray-100 p-6 rounded-lg max-w-3xl mx-auto shadow-sm">
-              <h3 className="text-xl font-bold mb-2">{recipe.title}</h3>
-              <p className="text-gray-700 mb-2">
-                Full details are in the right panel.
-              </p>
-              <button
-                onClick={handleSpeak}
-                className="text-sm underline hover:text-blue-600"
-              >
-                🔊 Listen Summary
-              </button>
-            </div>
-          )}
-        </div>
-
-        {/* Input at Bottom */}
-        <div className="border-t p-4 bg-white">
-          <div className="max-w-3xl mx-auto flex gap-2">
-            <input
-              type="text"
-              placeholder="Enter ingredients: chicken, rice..."
-              className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
-              value={ingredients[0]}
-              onChange={(e) => handleIngredientChange(0, e.target.value)}
-              onKeyDown={handleKeyDown}
-            />
-            <button
-              onClick={handleGenerate}
-              disabled={loading}
-              className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
-            >
-              {loading ? "..." : "Send"}
-            </button>
-          </div>
-        </div>
-      </div>
-
-      {/* RIGHT SIDEBAR - Recipe Output */}
-      <div className="w-80 bg-white border-l border-gray-200 flex flex-col">
-        {/* Top Nav */}
-        <div className="flex justify-end items-center gap-6 p-3 border-b bg-white">
-          <button className="text-gray-600 cursor-pointer hover:text-gray-800">
-            ⚙️
-          </button>
-          <button
-            onClick={() => setShowVoiceSettings((prev) => !prev)}
-            className="text-gray-600 cursor-pointer hover:text-gray-800"
-            aria-label="Toggle voice settings"
-          >
-            ⋮
-          </button>
-          <div className="w-8 h-8 cursor-pointer bg-blue-600 rounded-full flex items-center justify-center text-white text-sm font-bold">
-            P
+      <div className="flex-1 flex flex-col bg-white/50 backdrop-blur-sm">
+        {/* Header */}
+        <div className="bg-white border-b border-orange-200 p-4 shadow-sm">
+          <div className="max-w-4xl mx-auto flex items-center gap-3">
+            <Sparkles className="text-orange-500" size={24} />
+            <h1 className="text-xl font-bold text-gray-800">
+              Recipe Generation
+            </h1>
           </div>
         </div>
 
-        {/* Scrollable Content */}
-        <div className="flex-1 p-6 overflow-y-auto">
-          {!recipe && (
-            <p className="text-gray-500">Your recipe will appear here</p>
-          )}
+        {/* Chat Messages */}
+        {/* MAIN PANEL - Chat + Recipe */}
+        <div className="flex-1 flex flex-col bg-white/50 backdrop-blur-sm">
+          {/* Chat + Recipe Area */}
+          <div className="flex-1 p-6 overflow-y-auto">
+            <div className="max-w-4xl mx-auto space-y-6">
+              {/* Chat Section */}
+              <div className="space-y-4">
+                {chatHistory.length === 0 && !loading && (
+                  <div className="text-center py-12">
+                    <ChefHat
+                      className="mx-auto text-orange-300 mb-4"
+                      size={64}
+                    />
+                    <h2 className="text-2xl font-bold text-gray-800 mb-2">
+                      Welcome to AI Recipe Generator!
+                    </h2>
+                    <p className="text-gray-600">
+                      Add your ingredients and let AI create amazing recipes for
+                      you
+                    </p>
+                  </div>
+                )}
 
-          {recipe && (
-            <div className="space-y-6">
-              <h2 className="text-2xl font-bold text-gray-800">
-                {recipe.title}
-              </h2>
-              {showVoiceSettings && (
-                <p className="text-xs text-gray-500 mt-1">
-                  Adjust voice playback
-                </p>
-              )}
-
-              {/* Voice Settings - Toggle with Smooth Animation */}
-              <div className="flex justify-center gap-4 mb-5">
-                <button
-                  onClick={handleSpeak}
-                  disabled={isSpeaking || !recipe}
-                  title="Listen to recipe"
-                  className="w-12 h-12 flex items-center justify-center rounded-full bg-gradient-to-r from-gray-500 to-gray-600 hover:from-gray-600 hover:to-gray-700 disabled:from-gray-400 disabled:to-gray-500 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200 focus:outline-none"
-                >
-                  <span className="text-xl">{isSpeaking ? "⏸️" : "▶️"}</span>
-                </button>
-
-                <button
-                  onClick={handleStop}
-                  title="Stop"
-                  className="w-12 h-12 flex items-center justify-center rounded-full bg-gradient-to-r from-red-500 to-pink-600 hover:from-red-600 hover:to-pink-700 text-white shadow-lg hover:shadow-xl transform hover:scale-105 transition-all duration-200"
-                >
-                  <span className="text-xl">⏹️</span>
-                </button>
-              </div>
-
-              {/* Voice Settings Panel */}
-              <div
-                className={`transition-all duration-500 ease-in-out overflow-hidden ${
-                  showVoiceSettings
-                    ? "max-h-[600px] opacity-100"
-                    : "max-h-0 opacity-0"
-                }`}
-              >
-                <div className="bg-white/70 backdrop-blur-sm border border-blue-200 rounded-2xl p-5 shadow-lg">
-                  <h3 className="font-bold text-gray-800 mb-4 flex items-center gap-2">
-                    🎙️ Voice Settings
-                  </h3>
-
-                  <div className="space-y-5">
-                    {/* Speed */}
-                    <div>
-                      <div className="flex justify-between text-sm text-gray-700 mb-1">
-                        <span>Speed</span>
-                        <span>{rate.toFixed(1)}x</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0.5"
-                        max="2"
-                        step="0.1"
-                        value={rate}
-                        onChange={(e) => setRate(parseFloat(e.target.value))}
-                        className="w-full accent-blue-500 h-2 rounded-full"
-                      />
-                    </div>
-
-                    {/* Pitch */}
-                    <div>
-                      <div className="flex justify-between text-sm text-gray-700 mb-1">
-                        <span>Pitch</span>
-                        <span>{pitch.toFixed(1)}</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="2"
-                        step="0.1"
-                        value={pitch}
-                        onChange={(e) => setPitch(parseFloat(e.target.value))}
-                        className="w-full accent-purple-500 h-2 rounded-full"
-                      />
-                    </div>
-
-                    {/* Volume */}
-                    <div>
-                      <div className="flex justify-between text-sm text-gray-700 mb-1">
-                        <span>Volume</span>
-                        <span>{Math.round(volume * 100)}%</span>
-                      </div>
-                      <input
-                        type="range"
-                        min="0"
-                        max="1"
-                        step="0.1"
-                        value={volume}
-                        onChange={(e) => setVolume(parseFloat(e.target.value))}
-                        className="w-full accent-green-500 h-2 rounded-full"
-                      />
+                {chatHistory.map((msg, index) => (
+                  <div
+                    key={index}
+                    className={`flex ${
+                      msg.type === "user" ? "justify-end" : "justify-start"
+                    }`}
+                  >
+                    <div
+                      className={`max-w-xl p-4 rounded-2xl shadow-md ${
+                        msg.type === "user"
+                          ? "bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-br-none"
+                          : "bg-white border border-orange-200 text-gray-800 rounded-bl-none"
+                      }`}
+                    >
+                      <p className="font-medium mb-1 text-sm">
+                        {msg.type === "user" ? "👤 You" : "🤖 AI Chef"}
+                      </p>
+                      <p>{msg.content}</p>
                     </div>
                   </div>
+                ))}
+
+                {loading && (
+                  <div className="flex justify-start">
+                    <div className="bg-white border border-orange-200 p-4 rounded-2xl rounded-bl-none shadow-md">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce"></div>
+                        <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce delay-100"></div>
+                        <div className="w-2 h-2 bg-orange-500 rounded-full animate-bounce delay-200"></div>
+                        <span className="ml-2 text-gray-600">
+                          Cooking up something delicious...
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Recipe Section */}
+              {recipe && (
+                <div className="space-y-6 bg-white border border-orange-200 rounded-2xl shadow-lg p-6">
+                  <div className="bg-gradient-to-r from-orange-500 to-red-500 text-white p-6 rounded-xl shadow-md">
+                    <h2 className="text-2xl font-bold mb-2">{recipe.title}</h2>
+                  </div>
+
+                  {/* YouTube + Actions */}
+                  <div className="flex flex-wrap gap-2">
+                    {recipe.youtube_link && (
+                      <a
+                        href={recipe.youtube_link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-center gap-2 px-4 py-2 bg-red-600 hover:bg-red-700 text-white rounded-lg transition"
+                      >
+                        <Youtube size={16} />
+                        Watch Video
+                      </a>
+                    )}
+                    <button className="px-4 py-2 bg-white border border-orange-200 hover:bg-orange-50 rounded-lg flex items-center gap-2 text-sm">
+                      <Bookmark size={16} className="text-orange-500" />
+                      Save
+                    </button>
+                  </div>
+
+                  {/* Voice Buttons */}
+                  <div className="flex justify-center gap-3">
+                    <button
+                      onClick={handleSpeak}
+                      disabled={isSpeaking}
+                      className="w-12 h-12 rounded-full bg-gradient-to-r from-orange-500 to-red-500 text-white flex items-center justify-center hover:shadow-lg transition"
+                    >
+                      <Volume2 size={20} />
+                    </button>
+                    <button
+                      onClick={handleStop}
+                      className="w-12 h-12 rounded-full bg-gray-500 text-white flex items-center justify-center hover:shadow-lg transition"
+                    >
+                      <Square size={20} />
+                    </button>
+                  </div>
+
+                  {/* Ingredients */}
+                  <div>
+                    <h3 className="text-lg font-bold mb-3 flex items-center gap-2 text-gray-800">
+                      <Utensils className="text-orange-500" size={20} />
+                      Ingredients
+                    </h3>
+                    <ul className="space-y-2">
+                      {recipe.ingredients.map((ing, i) => (
+                        <li
+                          key={i}
+                          className="flex items-start gap-2 text-gray-700"
+                        >
+                          <div className="w-2 h-2 rounded-full bg-orange-500 mt-1.5"></div>
+                          <span>{ing}</span>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+
+                  {/* Instructions */}
+                  <div>
+                    <h3 className="text-lg font-bold mb-3 flex items-center gap-2 text-gray-800">
+                      <BookOpen className="text-orange-500" size={20} />
+                      Instructions
+                    </h3>
+                    <ol className="space-y-3">
+                      {recipe.instructions.map((step, i) => (
+                        <li key={i} className="flex gap-3">
+                          <span className="flex-shrink-0 w-6 h-6 rounded-full bg-orange-500 text-white flex items-center justify-center text-sm font-bold">
+                            {i + 1}
+                          </span>
+                          <span className="text-gray-700 flex-1">{step}</span>
+                        </li>
+                      ))}
+                    </ol>
+                  </div>
                 </div>
-              </div>
-
-              {/* Invisible placeholder for smooth collapse */}
-              <div
-                className={!showVoiceSettings ? "animate-slide-up" : ""}
-                style={
-                  !showVoiceSettings
-                    ? {
-                        maxHeight: 500,
-                        overflow: "hidden",
-                        padding: "0 1rem",
-                      }
-                    : {}
-                }
-              />
-
-              {/* Ingredients */}
-              <div>
-                <h3 className="text-lg font-bold">🛒 Ingredients</h3>
-                <ul className="list-disc pl-5 text-gray-700 space-y-1">
-                  {recipe?.ingredients?.map((ing: string, i: number) => (
-                    <li key={i}>{ing}</li>
-                  )) || <li>No ingredients available</li>}
-                </ul>
-              </div>
-
-              {/* Instructions */}
-              <div>
-                <h3 className="text-lg font-bold">📝 Instructions</h3>
-                <ol className="list-decimal pl-5 space-y-2">
-                  {recipe?.instructions?.map((step: string, i: number) => (
-                    <li key={i} className="text-gray-700">
-                      {step}
-                    </li>
-                  )) || <li>No instructions available</li>}
-                </ol>
-              </div>
+              )}
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Footer */}
-        <div className="border-t p-4 bg-gray-50 text-xs text-gray-600">
-          MakeAfood © 2025
+          {/* Input Bar */}
+          <div className="border-t border-orange-200 p-4 bg-white shadow-lg">
+            <div className="max-w-4xl mx-auto flex gap-3">
+              <input
+                type="text"
+                placeholder="Type ingredients..."
+                className="flex-1 px-4 py-3 border-2 border-orange-200 rounded-xl focus:outline-none focus:border-orange-500 transition"
+                value={ingredients[0]}
+                onChange={(e) => handleIngredientChange(0, e.target.value)}
+                onKeyDown={handleKeyDown}
+              />
+              <button
+                onClick={handleGenerate}
+                disabled={loading || ingredients.every((ing) => !ing.trim())}
+                className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl hover:shadow-lg disabled:opacity-50 transition-all font-semibold flex items-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                    Generating...
+                  </>
+                ) : (
+                  <>
+                    <Send size={18} />
+                    Generate
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       </div>
     </div>

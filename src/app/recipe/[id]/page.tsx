@@ -17,6 +17,7 @@ import {
   CheckCircle2,
   ChevronRight,
   Volume2,
+  Youtube,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -38,6 +39,7 @@ interface Recipe {
   views?: number;
   ingredients?: string[];
   tags?: string[];
+  youtube_link?: string;
 }
 
 interface RelatedRecipe {
@@ -47,6 +49,7 @@ interface RelatedRecipe {
   difficulty_level?: string;
   prep_time_minutes?: number;
   cook_time_minutes?: number;
+  youtube_link?: string;
 }
 
 // Separate RelatedRecipes component
@@ -69,9 +72,6 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
           <TrendingUp className="text-orange-500" size={32} />
           You Might Also Like
         </h2>
-        <button className="text-orange-600 font-semibold hover:gap-2 flex items-center gap-1 transition-all">
-          View All <ChevronRight size={18} />
-        </button>
       </div>
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-6">
         {recipes.map((recipe) => {
@@ -81,16 +81,7 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
           return (
             <div
               key={recipe.id}
-              onClick={() => {
-                const fixedId = recipe.id.startsWith("spoonacular-")
-                  ? `s-${recipe.id.replace("spoonacular-", "")}`
-                  : recipe.id.startsWith("mealdb-")
-                  ? `m-${recipe.id.replace("mealdb-", "")}`
-                  : recipe.id;
-
-                router.push(`/recipe/${fixedId}`);
-              }}
-              className="group cursor-pointer bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
+              className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
             >
               <div className="relative h-48 overflow-hidden">
                 <Image
@@ -109,8 +100,30 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
                     </span>
                   </div>
                 )}
+                {recipe.youtube_link && (
+                  <a
+                    href={recipe.youtube_link}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={(e) => e.stopPropagation()}
+                    className="absolute top-3 right-3 w-10 h-10 bg-red-600 hover:bg-red-700 rounded-full flex items-center justify-center transition-all shadow-lg hover:scale-110"
+                  >
+                    <Youtube className="text-white" size={20} />
+                  </a>
+                )}
               </div>
-              <div className="p-4">
+              <div
+                onClick={() => {
+                  const fixedId = recipe.id.startsWith("spoonacular-")
+                    ? `s-${recipe.id.replace("spoonacular-", "")}`
+                    : recipe.id.startsWith("mealdb-")
+                    ? `m-${recipe.id.replace("mealdb-", "")}`
+                    : recipe.id;
+
+                  router.push(`/recipe/${fixedId}`);
+                }}
+                className="p-4 cursor-pointer"
+              >
                 <h3 className="text-base font-bold text-gray-900 line-clamp-2 group-hover:text-orange-600 transition">
                   {recipe.title}
                 </h3>
@@ -157,13 +170,6 @@ export default function RecipeDetails() {
   const [isPaused, setIsPaused] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
-  // const segments = useMemo(() => {
-  //   if (!recipe?.instructions) return [];
-  //   return recipe.instructions.split("\n").map((line) => ({
-  //     words: line.trim().split(/\s+/).filter(Boolean),
-  //   }));
-  // }, [recipe?.instructions]);
-
   const stop = () => {
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
@@ -172,24 +178,19 @@ export default function RecipeDetails() {
     setCurrentWordIndex(null);
   };
 
-  // Modify the speak function to use instructions directly
   const speak = () => {
     if (!("speechSynthesis" in window)) {
       alert("Text-to-speech not supported. Try Chrome or Edge.");
       return;
     }
-    console.log(isPaused);
-    console.log(currentSegmentIndex);
-    console.log(currentWordIndex);
 
-    window.speechSynthesis.cancel(); // Stop any ongoing speech
+    window.speechSynthesis.cancel();
 
     if (!recipe?.instructions) {
       alert("No instructions available to read.");
       return;
     }
 
-    // Create text to read
     const textToRead = instructions
       .map((step, index) => `Step ${index + 1}: ${step}`)
       .join(". ");
@@ -199,7 +200,6 @@ export default function RecipeDetails() {
     utterance.rate = 1;
     utterance.pitch = 1;
 
-    // Handle speech events
     utterance.onstart = () => {
       setIsSpeaking(true);
       setIsPaused(false);
@@ -339,14 +339,9 @@ export default function RecipeDetails() {
     );
   }
 
-  // const totalTime =
-  //   (recipe.prep_time_minutes || 0) + (recipe.cook_time_minutes || 0);
-
   const instructions = recipe.instructions
     .split("\n")
     .filter((step) => step.trim());
-
-  // const sanitizedText = DOMPurify.sanitize(recipe.instructions);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 py-8 px-4 sm:px-6">
@@ -372,6 +367,21 @@ export default function RecipeDetails() {
               className="w-full h-full object-cover"
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
+
+            {/* YouTube button on hero image - bottom right */}
+            {recipe.youtube_link && (
+              <a
+                href={recipe.youtube_link}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="absolute z-10 cursor-pointer bottom-6 right-6 px-6 py-3 bg-red-600 hover:bg-red-700 rounded-xl flex items-center gap-2 transition-all shadow-2xl hover:shadow-red-500/50 hover:scale-105 group"
+              >
+                <Youtube className="text-white" size={24} />
+                <span className="text-white font-semibold text-lg">
+                  Watch Tutorial
+                </span>
+              </a>
+            )}
 
             {/* Floating action buttons */}
             <div className="absolute top-6 right-6 flex gap-3">
@@ -458,10 +468,13 @@ export default function RecipeDetails() {
                 </div>
               )}
               {recipe.servings && (
-                <div className="text-center">
-                  <Users className="mx-auto mb-2" size={24} />
-                  <div className="text-2xl font-bold">{recipe.servings}</div>
-                  <div className="text-sm opacity-90">Servings</div>
+                <div className="text-center ">
+                  <div className="flex space-x-2">
+                    <Users className="mx-auto mb-2" size={24} />
+                    <p className="text-2xl font-bold">
+                      {recipe.servings} servings
+                    </p>
+                  </div>
                 </div>
               )}
               {recipe.rating && (
@@ -477,6 +490,17 @@ export default function RecipeDetails() {
           {/* Action Buttons */}
           <div className="px-8 py-6 bg-gray-50 border-b border-gray-200">
             <div className="flex flex-wrap gap-3">
+              {recipe.youtube_link && (
+                <a
+                  href={recipe.youtube_link}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition font-medium shadow-md hover:shadow-lg"
+                >
+                  <Youtube size={18} />
+                  Watch Video
+                </a>
+              )}
               <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition font-medium">
                 <Printer size={18} />
                 Print Recipe

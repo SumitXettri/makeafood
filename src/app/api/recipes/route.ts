@@ -4,9 +4,13 @@ import { NextResponse } from "next/server";
 // Simple in-memory cache (per server instance, resets on restart)
 const cache: { [key: string]: { data: any; expires: number } } = {};
 
-// Add keyword index variable
-
 const MEALDB_RANDOM = "https://www.themealdb.com/api/json/v1/1/random.php";
+
+// Helper function to generate YouTube search link (free, no API needed)
+function getYouTubeSearchLink(recipeTitle: string): string {
+  const searchQuery = encodeURIComponent(`${recipeTitle} recipe`);
+  return `https://www.youtube.com/results?search_query=${searchQuery}`;
+}
 
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
@@ -26,7 +30,7 @@ export async function GET(req: Request) {
       ? `https://api.spoonacular.com/recipes/complexSearch?query=${encodeURIComponent(
           query
         )}&number=8&addRecipeInformation=true&instructionsRequired=true&fillIngredients=true&apiKey=${apiKey}`
-      : `https://api.spoonacular.com/recipes/random?number=4&apiKey=${apiKey}`; // Keep at 4 for Spoonacular
+      : `https://api.spoonacular.com/recipes/random?number=4&apiKey=${apiKey}`;
 
     let mealUrl: string;
     let mealData: any;
@@ -56,8 +60,8 @@ export async function GET(req: Request) {
     let results: any[] = [];
 
     // Set different limits for each source
-    const spoonacularLimit = 4; // 4 recipes from Spoonacular
-    const mealdbLimit = 8; // 8 recipes from MealDB
+    const spoonacularLimit = 4;
+    const mealdbLimit = 8;
 
     // Process Spoonacular results
     if (spoonRes.ok) {
@@ -73,7 +77,6 @@ export async function GET(req: Request) {
             r.summary?.replace(/<[^>]+>/g, "").slice(0, 150) + "…" ||
             r.instructions?.slice(0, 150) + "…" ||
             "Description coming soon.",
-          // Add ingredients from extendedIngredients
           ingredients:
             r.extendedIngredients?.map((ing: any) =>
               `${ing.amount} ${ing.unit} ${ing.name}`.trim()
@@ -82,6 +85,7 @@ export async function GET(req: Request) {
           cook_time_minutes: r.cookingMinutes || 0,
           servings: r.servings || 0,
           difficulty_level: r.difficulty || "Medium",
+          youtube_link: getYouTubeSearchLink(r.title),
         }));
       results.push(...spoonRecipes);
     }
@@ -110,11 +114,12 @@ export async function GET(req: Request) {
             m.strInstructions?.slice(0, 150) + "…" ||
             "Description coming soon.",
           ingredients,
-          // Add additional recipe details
-          prep_time_minutes: 0, // MealDB doesn't provide this
-          cook_time_minutes: 0, // MealDB doesn't provide this
-          servings: 0, // MealDB doesn't provide this
-          difficulty_level: "Medium", // MealDB doesn't provide this
+          prep_time_minutes: 0,
+          cook_time_minutes: 0,
+          servings: 0,
+          difficulty_level: "Medium",
+          // MealDB provides YouTube links directly, or fallback to search
+          youtube_link: m.strYoutube || getYouTubeSearchLink(m.strMeal),
         };
       });
       results.push(...mealRecipes);

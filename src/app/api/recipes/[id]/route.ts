@@ -8,6 +8,12 @@ const SPOONACULAR_INFO = "https://api.spoonacular.com/recipes";
 const SPOONACULAR_SEARCH = "https://api.spoonacular.com/recipes/complexSearch";
 const SPOONACULAR_KEY = process.env.SPOONACULAR_API_KEY;
 
+// Helper function to generate YouTube search link (free, no API needed)
+function getYouTubeSearchLink(recipeTitle: string): string {
+  const searchQuery = encodeURIComponent(`${recipeTitle} recipe`);
+  return `https://www.youtube.com/results?search_query=${searchQuery}`;
+}
+
 export async function GET(
   req: Request,
   context: { params: Promise<{ id: string }> }
@@ -53,10 +59,13 @@ export async function GET(
         area: meal.strArea,
         instructions: meal.strInstructions,
         source: "MealDB",
-        ingredients, // Add ingredients array
+        ingredients,
         prep_time_minutes: 0,
         cook_time_minutes: 0,
         servings: 0,
+        difficulty_level: "Medium",
+        // Add YouTube link - use MealDB's direct link or generate search link
+        youtube_link: meal.strYoutube || getYouTubeSearchLink(meal.strMeal),
       };
 
       // Fetch related by category
@@ -69,9 +78,10 @@ export async function GET(
             .filter((r: any) => r.idMeal !== mealId)
             .slice(0, 6)
             .map((r: any) => ({
-              id: `mealdb-${r.idMeal}`,
+              id: `m-${r.idMeal}`,
               title: r.strMeal,
               image: r.strMealThumb,
+              youtube_link: getYouTubeSearchLink(r.strMeal),
             }));
         }
       }
@@ -82,9 +92,10 @@ export async function GET(
         const randData = await randRes.json();
         if (randData.meals) {
           related = randData.meals.map((r: any) => ({
-            id: `mealdb-${r.idMeal}`,
+            id: `m-${r.idMeal}`,
             title: r.strMeal,
             image: r.strMealThumb,
+            youtube_link: getYouTubeSearchLink(r.strMeal),
           }));
         }
       }
@@ -118,6 +129,9 @@ export async function GET(
         prep_time_minutes: data.preparationMinutes || 0,
         cook_time_minutes: data.cookingMinutes || 0,
         servings: data.servings || 0,
+        difficulty_level: data.difficulty || "Medium",
+        // Add YouTube link for Spoonacular recipes
+        youtube_link: getYouTubeSearchLink(data.title),
       };
 
       // Fetch related recipes using Spoonacular's search API
@@ -133,9 +147,10 @@ export async function GET(
         related = relData.results
           .filter((r: any) => r.id !== Number(spoonId))
           .map((r: any) => ({
-            id: `spoonacular-${r.id}`,
+            id: `s-${r.id}`,
             title: r.title,
             image: r.image,
+            youtube_link: getYouTubeSearchLink(r.title),
           }));
       }
 
@@ -147,9 +162,10 @@ export async function GET(
         const randData = await randRes.json();
         if (randData.results) {
           related = randData.results.map((r: any) => ({
-            id: `spoonacular-${r.id}`,
+            id: `s-${r.id}`,
             title: r.title,
             image: r.image,
+            youtube_link: getYouTubeSearchLink(r.title),
           }));
         }
       }

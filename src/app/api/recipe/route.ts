@@ -1,10 +1,14 @@
 import { NextResponse } from "next/server";
 import { GoogleGenerativeAI } from "@google/generative-ai";
 
-// Initialize Gemini once, outside request handler
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "");
+const apiKey = process.env.GEMINI_API_KEY;
+if (!apiKey) {
+  console.error("❌ Gemini API key missing!");
+}
+
+const genAI = new GoogleGenerativeAI(apiKey || "");
 const model = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash", // Updated model name
+  model: "gemini-2.0-flash", // or "gemini-1.5-flash" if 2.5 isn't supported yet
   generationConfig: {
     temperature: 0.7,
     topP: 0.8,
@@ -12,7 +16,6 @@ const model = genAI.getGenerativeModel({
   },
 });
 
-// Prepare prompt template once
 const PROMPT_TEMPLATE = `You are a recipe generator. Return ONLY a valid JSON object with this exact structure:
 {
   "title": "Recipe title",
@@ -22,7 +25,7 @@ const PROMPT_TEMPLATE = `You are a recipe generator. Return ONLY a valid JSON ob
 Create a recipe using these ingredients: `;
 
 export async function POST(req: Request) {
-  if (!process.env.GEMINI_API_KEY) {
+  if (!apiKey) {
     return NextResponse.json(
       { error: "Server misconfigured: missing API key" },
       { status: 500 }
@@ -34,43 +37,34 @@ export async function POST(req: Request) {
     const prompt = PROMPT_TEMPLATE + ingredients;
 
     const result = await model.generateContent(prompt);
-    const output = result.response
-      .text()
-      .replace(/```json\s*|\s*```/g, "") // Remove code fences in one go
+    const response = await result.response; // ✅ Await this
+    const raw = response.text();
+
+    const cleaned = raw
+      .replace(/```json\s*|\s*```/g, "")
       .replace(/[\u200B-\u200D\uFEFF]/g, "")
-      .replace(/\s+/g, " ") // Replace all whitespace with single space
+      .replace(/\s+/g, " ")
       .trim();
 
-    try {
-      const recipe = JSON.parse(output);
+    const recipe = JSON.parse(cleaned);
 
-      // Validate with type assertion for better performance
-      if (
-        typeof recipe === "object" &&
-        recipe &&
-        typeof recipe.title === "string" &&
-        Array.isArray(recipe.ingredients) &&
-        Array.isArray(recipe.instructions) &&
-        recipe.ingredients.length &&
-        recipe.instructions.length
-      ) {
-        return NextResponse.json(recipe);
-      }
-
-      throw new Error("Invalid recipe structure");
-    } catch (err) {
-      return NextResponse.json(
-        {
-          error: "Failed to parse recipe",
-          details: err instanceof Error ? err.message : "Unknown error",
-        },
-        { status: 500 }
-      );
+    if (
+      recipe &&
+      typeof recipe.title === "string" &&
+      Array.isArray(recipe.ingredients) &&
+      Array.isArray(recipe.instructions)
+    ) {
+      return NextResponse.json(recipe);
     }
-  } catch (err) {
-    console.error("Generation Error:", err);
+
+    throw new Error("Invalid recipe structure");
+  } catch (err: any) {
+    console.error("❌ Generation Error:", err);
     return NextResponse.json(
-      { error: "Failed to generate recipe" },
+      {
+        error: "Failed to generate recipe",
+        details: err?.message || "Unknown error",
+      },
       { status: 500 }
     );
   }
