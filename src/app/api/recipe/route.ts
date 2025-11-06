@@ -58,12 +58,15 @@ export async function POST(req: Request) {
     }
 
     throw new Error("Invalid recipe structure");
-  } catch (err: any) {
+  } catch (err) {
+    const errorMessage = err instanceof Error ? err.message : "Unknown error";
+
     console.error("❌ Generation Error:", err);
+
     return NextResponse.json(
       {
         error: "Failed to generate recipe",
-        details: err?.message || "Unknown error",
+        details: errorMessage,
       },
       { status: 500 }
     );

@@ -178,7 +178,7 @@ export default function RecipeDetails() {
   };
 
   if (isPaused && currentSegmentIndex !== null && currentWordIndex !== null) {
-    return 1;
+    return;
   }
 
   const speak = () => {

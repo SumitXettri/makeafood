@@ -214,7 +214,7 @@ export default function HomePage() {
           <div className="flex items-center justify-between mb-8">
             <div>
               <h2 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-                <span className="text-4xl">✨</span> Today's Special
+                <span className="text-4xl">✨</span> Today&#39;s Special
               </h2>
               <p className="text-gray-600">
                 Handpicked recipes curated by our chefs

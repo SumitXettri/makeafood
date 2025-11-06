@@ -8,11 +8,61 @@ const SPOONACULAR_INFO = "https://api.spoonacular.com/recipes";
 const SPOONACULAR_SEARCH = "https://api.spoonacular.com/recipes/complexSearch";
 const SPOONACULAR_KEY = process.env.SPOONACULAR_API_KEY;
 
-// Helper function to generate YouTube search link (free, no API needed)
+// ----------------------
+// 🔹 Helper Interfaces
+// ----------------------
+
+interface MealDBRecipe {
+  idMeal: string;
+  strMeal: string;
+  strMealThumb: string;
+  strCategory?: string;
+  strArea?: string;
+  strInstructions?: string;
+  strYoutube?: string;
+  [key: string]: string | undefined;
+}
+
+interface MealDBResponse {
+  meals?: MealDBRecipe[];
+}
+
+interface SpoonacularIngredient {
+  amount: number;
+  unit: string;
+  name: string;
+}
+
+interface SpoonacularRecipe {
+  id: number;
+  title: string;
+  image: string;
+  dishTypes?: string[];
+  cuisines?: string[];
+  instructions?: string;
+  extendedIngredients?: SpoonacularIngredient[];
+  preparationMinutes?: number;
+  cookingMinutes?: number;
+  servings?: number;
+  difficulty?: string;
+}
+
+interface SpoonacularResponse {
+  results?: SpoonacularRecipe[];
+}
+
+// ----------------------
+// 🔹 Helper Function
+// ----------------------
+
 function getYouTubeSearchLink(recipeTitle: string): string {
   const searchQuery = encodeURIComponent(`${recipeTitle} recipe`);
   return `https://www.youtube.com/results?search_query=${searchQuery}`;
 }
+
+// ----------------------
+// 🔹 API Route Handler
+// ----------------------
 
 export async function GET(
   req: Request,
@@ -30,7 +80,7 @@ export async function GET(
       const res = await fetch(`${MEALDB_LOOKUP}${mealId}`);
       if (!res.ok) throw new Error("MealDB fetch failed");
 
-      const data = await res.json();
+      const data = (await res.json()) as MealDBResponse;
       if (!data.meals?.length)
         return NextResponse.json(
           { error: "Recipe not found" },
@@ -39,8 +89,8 @@ export async function GET(
 
       const meal = data.meals[0];
 
-      // Extract ingredients from MealDB's numbered properties
-      const ingredients = [];
+      // Extract ingredients
+      const ingredients: string[] = [];
       for (let i = 1; i <= 20; i++) {
         const ingredient = meal[`strIngredient${i}`];
         const measure = meal[`strMeasure${i}`];
@@ -64,20 +114,25 @@ export async function GET(
         cook_time_minutes: 0,
         servings: 0,
         difficulty_level: "Medium",
-        // Add YouTube link - use MealDB's direct link or generate search link
         youtube_link: meal.strYoutube || getYouTubeSearchLink(meal.strMeal),
       };
 
-      // Fetch related by category
-      let related: any[] = [];
+      // Fetch related recipes
+      let related: {
+        id: string;
+        title: string;
+        image: string;
+        youtube_link: string;
+      }[] = [];
+
       if (meal.strCategory) {
         const relRes = await fetch(`${MEALDB_FILTER}${meal.strCategory}`);
-        const relData = await relRes.json();
+        const relData = (await relRes.json()) as MealDBResponse;
         if (relData.meals) {
           related = relData.meals
-            .filter((r: any) => r.idMeal !== mealId)
+            .filter((r) => r.idMeal !== mealId)
             .slice(0, 6)
-            .map((r: any) => ({
+            .map((r) => ({
               id: `m-${r.idMeal}`,
               title: r.strMeal,
               image: r.strMealThumb,
@@ -86,12 +141,12 @@ export async function GET(
         }
       }
 
-      // Fallback: Random meal if no related found
+      // Fallback: random meals
       if (!related.length) {
         const randRes = await fetch(MEALDB_RANDOM);
-        const randData = await randRes.json();
+        const randData = (await randRes.json()) as MealDBResponse;
         if (randData.meals) {
-          related = randData.meals.map((r: any) => ({
+          related = randData.meals.map((r) => ({
             id: `m-${r.idMeal}`,
             title: r.strMeal,
             image: r.strMealThumb,
@@ -112,7 +167,8 @@ export async function GET(
         `${SPOONACULAR_INFO}/${spoonId}/information?apiKey=${SPOONACULAR_KEY}`
       );
       if (!res.ok) throw new Error("Spoonacular fetch failed");
-      const data = await res.json();
+
+      const data = (await res.json()) as SpoonacularRecipe;
 
       const recipe = {
         id,
@@ -123,30 +179,34 @@ export async function GET(
         instructions: data.instructions || "No instructions available.",
         source: "Spoonacular",
         ingredients:
-          data.extendedIngredients?.map((ing: any) =>
+          data.extendedIngredients?.map((ing) =>
             `${ing.amount} ${ing.unit} ${ing.name}`.trim()
           ) || [],
         prep_time_minutes: data.preparationMinutes || 0,
         cook_time_minutes: data.cookingMinutes || 0,
         servings: data.servings || 0,
         difficulty_level: data.difficulty || "Medium",
-        // Add YouTube link for Spoonacular recipes
         youtube_link: getYouTubeSearchLink(data.title),
       };
 
-      // Fetch related recipes using Spoonacular's search API
-      let related: any[] = [];
-      const query = data.cuisines?.[0] || data.dishTypes?.[0] || "popular";
+      // Related recipes
+      let related: {
+        id: string;
+        title: string;
+        image: string;
+        youtube_link: string;
+      }[] = [];
 
+      const query = data.cuisines?.[0] || data.dishTypes?.[0] || "popular";
       const relRes = await fetch(
         `${SPOONACULAR_SEARCH}?apiKey=${SPOONACULAR_KEY}&query=${query}&number=6`
       );
-      const relData = await relRes.json();
+      const relData = (await relRes.json()) as SpoonacularResponse;
 
       if (relData.results) {
         related = relData.results
-          .filter((r: any) => r.id !== Number(spoonId))
-          .map((r: any) => ({
+          .filter((r) => r.id !== Number(spoonId))
+          .map((r) => ({
             id: `s-${r.id}`,
             title: r.title,
             image: r.image,
@@ -154,14 +214,14 @@ export async function GET(
           }));
       }
 
-      // Fallback: fetch random Spoonacular recipes if nothing found
+      // Fallback: random Spoonacular
       if (!related.length) {
         const randRes = await fetch(
           `${SPOONACULAR_SEARCH}?apiKey=${SPOONACULAR_KEY}&sort=random&number=6`
         );
-        const randData = await randRes.json();
+        const randData = (await randRes.json()) as SpoonacularResponse;
         if (randData.results) {
-          related = randData.results.map((r: any) => ({
+          related = randData.results.map((r) => ({
             id: `s-${r.id}`,
             title: r.title,
             image: r.image,
@@ -174,11 +234,12 @@ export async function GET(
     }
 
     // ===========================
-    // 🚫 Unknown ID
+    // 🚫 Invalid ID
     // ===========================
     return NextResponse.json({ error: "Invalid recipe ID" }, { status: 400 });
-  } catch (err: any) {
-    console.error("Error fetching recipe:", err.message);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : "Unknown server error";
+    console.error("Error fetching recipe:", message);
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }

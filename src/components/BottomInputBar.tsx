@@ -174,7 +174,7 @@ function BottomInputBar({
       {/* 4. Footer Text (Tighter margin, smallest text size) */}
       <div className="mt-1 text-center text-[10px] text-gray-500">
         <p>
-          What's in your kitchen! List a few core ingredients to start the
+          What&#39;s in your kitchen! List a few core ingredients to start the
           magic.
         </p>
       </div>
