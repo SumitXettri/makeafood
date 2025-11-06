@@ -14,6 +14,7 @@ import {
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";
 import Image from "next/image";
+import Link from "next/link";
 
 export default function HomePage() {
   const [hoveredCard, setHoveredCard] = useState<number | null>(null);
@@ -323,7 +324,7 @@ export default function HomePage() {
               your recipes
             </p>
             <button className="px-8 py-4 bg-white text-orange-600 rounded-xl font-bold text-lg hover:scale-105 transition-transform shadow-xl">
-              Start Sharing Today
+              <Link href={"/submit-recipe"}>Start Sharing Today</Link>
             </button>
           </div>
         </section>
@@ -350,9 +351,12 @@ export default function HomePage() {
               <h4 className="font-bold text-gray-900 mb-3">Explore</h4>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li>
-                  <a href="#" className="hover:text-orange-600 transition">
+                  <Link
+                    href={"/search"}
+                    className="hover:text-orange-600 transition"
+                  >
                     Recipes
-                  </a>
+                  </Link>
                 </li>
                 <li>
                   <a href="#" className="hover:text-orange-600 transition">
@@ -360,9 +364,12 @@ export default function HomePage() {
                   </a>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-orange-600 transition">
+                  <Link
+                    href={"/trending"}
+                    className="hover:text-orange-600 transition"
+                  >
                     Trending
-                  </a>
+                  </Link>
                 </li>
               </ul>
             </div>
@@ -370,9 +377,12 @@ export default function HomePage() {
               <h4 className="font-bold text-gray-900 mb-3">Community</h4>
               <ul className="space-y-2 text-sm text-gray-600">
                 <li>
-                  <a href="#" className="hover:text-orange-600 transition">
+                  <Link
+                    href="/submit-recipe"
+                    className="hover:text-orange-600 transition"
+                  >
                     Share Recipe
-                  </a>
+                  </Link>
                 </li>
                 <li>
                   <a href="#" className="hover:text-orange-600 transition">
