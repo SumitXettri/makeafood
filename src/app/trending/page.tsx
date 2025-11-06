@@ -17,7 +17,6 @@ import {
   Filter,
   Calendar,
   MessageCircle,
-  ArrowLeft,
 } from "lucide-react";
 import Navbar from "@/components/Navbar";
 import Image from "next/image";
@@ -59,6 +58,10 @@ export default function TrendingPage() {
     "today" | "week" | "month" | "all"
   >("week");
   const [categoryFilter, setCategoryFilter] = useState<string>("all");
+
+  if (categoryFilter) {
+    console.log("Category filter applied:", categoryFilter);
+  }
 
   useEffect(() => {
     // Simulate API call - replace with actual Supabase query

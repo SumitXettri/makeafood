@@ -24,7 +24,6 @@ function BottomInputBar({
   const filledIngredients = ingredients.filter((ing) => ing.trim()).length;
   const hasIngredients = filledIngredients > 0;
   const canAddMore = ingredients.length < 10;
-  const isSingleIngredient = ingredients.length === 1;
 
   // FIX: Refactored to safely clear the list by iterating backward.
   const handleClearIngredients = () => {

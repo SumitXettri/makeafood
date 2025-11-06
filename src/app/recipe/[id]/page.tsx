@@ -15,7 +15,6 @@ import {
   MessageCircle,
   TrendingUp,
   CheckCircle2,
-  ChevronRight,
   Volume2,
   Youtube,
 } from "lucide-react";
@@ -177,6 +176,10 @@ export default function RecipeDetails() {
     setCurrentSegmentIndex(null);
     setCurrentWordIndex(null);
   };
+
+  if (isPaused && currentSegmentIndex !== null && currentWordIndex !== null) {
+    return 1;
+  }
 
   const speak = () => {
     if (!("speechSynthesis" in window)) {
