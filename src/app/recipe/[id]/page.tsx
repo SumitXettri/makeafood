@@ -177,9 +177,7 @@ export default function RecipeDetails() {
     setCurrentWordIndex(null);
   };
 
-  if (isPaused && currentSegmentIndex !== null && currentWordIndex !== null) {
-    return;
-  }
+  console.log(isPaused, currentSegmentIndex, currentWordIndex);
 
   const speak = () => {
     if (!("speechSynthesis" in window)) {
