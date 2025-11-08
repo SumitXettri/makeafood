@@ -29,9 +29,13 @@ interface Recipe {
 
 interface RecipeListProps {
   query?: string;
+  genre?: string; // Add genre prop
 }
 
-export default function RecipeList({ query = "" }: RecipeListProps) {
+export default function RecipeList({
+  query = "",
+  genre = "",
+}: RecipeListProps) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -43,9 +47,11 @@ export default function RecipeList({ query = "" }: RecipeListProps) {
       setLoading(true);
       setError(null);
       try {
-        const res = await fetch(
-          `/api/recipes?query=${encodeURIComponent(query)}`
-        );
+        const params = new URLSearchParams();
+        if (query) params.set("query", query);
+        if (genre) params.set("genre", genre);
+
+        const res = await fetch(`/api/recipes?${params.toString()}`);
         const data = await res.json();
 
         if (data.error) throw new Error(data.error);
@@ -71,7 +77,7 @@ export default function RecipeList({ query = "" }: RecipeListProps) {
     }
 
     fetchRecipes();
-  }, [query]);
+  }, [query, genre]); // Add genre to dependency array
 
   const toggleFavorite = (e: React.MouseEvent, recipeId: string) => {
     e.stopPropagation();

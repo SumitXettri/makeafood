@@ -44,9 +44,8 @@ interface UnifiedRecipe {
   youtube_link: string;
 }
 
-// Simple in-memory cache (per server instance, resets on restart)
+// In-memory cache
 const cache: Record<string, { data: UnifiedRecipe[]; expires: number }> = {};
-
 const MEALDB_RANDOM = "https://www.themealdb.com/api/json/v1/1/random.php";
 
 // Helper: generate YouTube search link
@@ -55,12 +54,54 @@ function getYouTubeSearchLink(recipeTitle: string): string {
   return `https://www.youtube.com/results?search_query=${searchQuery}`;
 }
 
+// 🧠 Weighted Scoring Algorithm
+function rankRecipes(
+  recipes: UnifiedRecipe[],
+  query: string,
+  genre?: string | null,
+  difficulty?: string | null
+): UnifiedRecipe[] {
+  const q = query.toLowerCase();
+
+  return recipes
+    .map((r) => {
+      let score = 0;
+
+      // Match query relevance
+      if (q && r.title.toLowerCase().includes(q)) score += 4;
+      if (q && r.description.toLowerCase().includes(q)) score += 2;
+
+      // Genre (bonus if genre keyword appears)
+      if (genre && r.title.toLowerCase().includes(genre.toLowerCase()))
+        score += 3;
+      if (genre && r.description.toLowerCase().includes(genre.toLowerCase()))
+        score += 1;
+
+      // Difficulty weighting
+      if (difficulty) {
+        const d = r.difficulty_level.toLowerCase();
+        if (d === difficulty.toLowerCase()) score += 2;
+      }
+
+      // Recipe popularity proxy
+      if (r.servings > 3) score += 1;
+      if (r.prep_time_minutes + r.cook_time_minutes < 30) score += 0.5; // quick recipes slight boost
+
+      return { ...r, _score: score };
+    })
+    .filter((r) => r._score && r._score > 0)
+    .sort((a, b) => b._score - a._score)
+    .map(({ _score, ...rest }) => rest);
+}
+
 export async function GET(req: Request) {
   const { searchParams } = new URL(req.url);
   const query = searchParams.get("query") || "";
   const apiKey = process.env.SPOONACULAR_API_KEY;
+  const genre = searchParams.get("genre");
+  const difficulty = searchParams.get("difficulty");
 
-  const cacheKey = query || "random";
+  const cacheKey = query + (genre || "") + (difficulty || "");
   const now = Date.now();
 
   // Return cached data if valid
@@ -69,11 +110,20 @@ export async function GET(req: Request) {
   }
 
   try {
-    const spoonUrl = query
-      ? `https://api.spoonacular.com/recipes/complexSearch?query=${encodeURIComponent(
-          query
-        )}&number=8&addRecipeInformation=true&instructionsRequired=true&fillIngredients=true&apiKey=${apiKey}`
-      : `https://api.spoonacular.com/recipes/random?number=4&apiKey=${apiKey}`;
+    const spoonUrl =
+      query || genre
+        ? `https://api.spoonacular.com/recipes/complexSearch?${new URLSearchParams(
+            {
+              query: query || "",
+              cuisine: genre || "",
+              number: "8",
+              addRecipeInformation: "true",
+              instructionsRequired: "true",
+              fillIngredients: "true",
+              apiKey: apiKey || "",
+            }
+          ).toString()}`
+        : `https://api.spoonacular.com/recipes/random?number=4&apiKey=${apiKey}`;
 
     let mealUrl: string;
     let mealData: { meals?: MealDBRecipe[] } = {};
@@ -85,7 +135,6 @@ export async function GET(req: Request) {
       const mealRes = await fetch(mealUrl);
       mealData = (await mealRes.json()) as { meals?: MealDBRecipe[] };
     } else {
-      // Fetch multiple random meals
       const randomRecipePromises = Array(8)
         .fill(null)
         .map(async () => {
@@ -98,12 +147,8 @@ export async function GET(req: Request) {
       mealData = { meals: randomMeals.filter(Boolean) as MealDBRecipe[] };
     }
 
-    // Fetch Spoonacular data
     const spoonRes = await fetch(spoonUrl);
     const results: UnifiedRecipe[] = [];
-
-    const spoonacularLimit = 4;
-    const mealdbLimit = 8;
 
     // Process Spoonacular
     if (spoonRes.ok) {
@@ -112,9 +157,8 @@ export async function GET(req: Request) {
         recipes?: SpoonacularRecipe[];
       };
 
-      const spoonRecipes = (spoonData.results || spoonData.recipes || [])
-        .slice(0, spoonacularLimit)
-        .map((r) => ({
+      const spoonRecipes = (spoonData.results || spoonData.recipes || []).map(
+        (r) => ({
           id: `s-${r.id}`,
           title: r.title,
           image: r.image,
@@ -132,14 +176,15 @@ export async function GET(req: Request) {
           servings: r.servings || 0,
           difficulty_level: r.difficulty || "Medium",
           youtube_link: getYouTubeSearchLink(r.title),
-        }));
+        })
+      );
 
       results.push(...spoonRecipes);
     }
 
     // Process MealDB
     if (mealData.meals?.length) {
-      const mealRecipes = mealData.meals.slice(0, mealdbLimit).map((m) => {
+      const mealRecipes = mealData.meals.map((m) => {
         const ingredients: string[] = [];
         for (let i = 1; i <= 20; i++) {
           const ingredient = m[`strIngredient${i}`];
@@ -171,15 +216,14 @@ export async function GET(req: Request) {
       results.push(...mealRecipes);
     }
 
-    // Shuffle for random queries
-    if (!query) {
-      results.sort(() => Math.random() - 0.5);
-    }
+    // 🔍 Apply ranking algorithm
+    const rankedResults =
+      query || genre || difficulty
+        ? rankRecipes(results, query, genre, difficulty)
+        : results.sort(() => Math.random() - 0.5);
 
-    // Limit total results
-    const finalResults = results.slice(0, 12);
-
-    // Cache for 3 minutes
+    // Limit & cache
+    const finalResults = rankedResults.slice(0, 12);
     cache[cacheKey] = { data: finalResults, expires: now + 3 * 60 * 1000 };
 
     return NextResponse.json(finalResults);
