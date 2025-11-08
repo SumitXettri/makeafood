@@ -343,7 +343,7 @@ export default function TrendingPage() {
           </div>
 
           <button
-            onClick={() => router.push("/search")}
+            onClick={() => router.push("/recipes")}
             className="flex items-center gap-2 px-6 py-3 bg-white rounded-xl shadow-md hover:shadow-lg transition-all font-medium text-gray-700 hover:text-orange-600"
           >
             <Filter size={20} />

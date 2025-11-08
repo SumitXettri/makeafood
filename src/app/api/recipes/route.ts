@@ -55,6 +55,30 @@ function getYouTubeSearchLink(recipeTitle: string): string {
 }
 
 // 🧠 Weighted Scoring Algorithm
+function calculateScore(
+  r: UnifiedRecipe,
+  q: string,
+  genre?: string | null,
+  difficulty?: string | null
+): number {
+   
+  let score = 0;
+
+  if (q && r.title.toLowerCase().includes(q)) score += 4;
+  if (q && r.description.toLowerCase().includes(q)) score += 2;
+  if (genre && r.title.toLowerCase().includes(genre.toLowerCase())) score += 3;
+  if (genre && r.description.toLowerCase().includes(genre.toLowerCase()))
+    score += 1;
+  if (difficulty) {
+    const d = r.difficulty_level.toLowerCase();
+    if (d === difficulty.toLowerCase()) score += 2;
+  }
+  if (r.servings > 3) score += 1;
+  if (r.prep_time_minutes + r.cook_time_minutes < 30) score += 0.5;
+
+  return score;
+}
+
 function rankRecipes(
   recipes: UnifiedRecipe[],
   query: string,
@@ -63,35 +87,15 @@ function rankRecipes(
 ): UnifiedRecipe[] {
   const q = query.toLowerCase();
 
-  return recipes
-    .map((r) => {
-      let score = 0;
+  const scored = recipes.map((r) => ({
+    ...r,
+    score: calculateScore(r, q, genre, difficulty),
+  }));
 
-      // Match query relevance
-      if (q && r.title.toLowerCase().includes(q)) score += 4;
-      if (q && r.description.toLowerCase().includes(q)) score += 2;
-
-      // Genre (bonus if genre keyword appears)
-      if (genre && r.title.toLowerCase().includes(genre.toLowerCase()))
-        score += 3;
-      if (genre && r.description.toLowerCase().includes(genre.toLowerCase()))
-        score += 1;
-
-      // Difficulty weighting
-      if (difficulty) {
-        const d = r.difficulty_level.toLowerCase();
-        if (d === difficulty.toLowerCase()) score += 2;
-      }
-
-      // Recipe popularity proxy
-      if (r.servings > 3) score += 1;
-      if (r.prep_time_minutes + r.cook_time_minutes < 30) score += 0.5; // quick recipes slight boost
-
-      return { ...r, _score: score };
-    })
-    .filter((r) => r._score && r._score > 0)
-    .sort((a, b) => b._score - a._score)
-    .map(({ _score, ...rest }) => rest);
+  return scored
+    .filter((r) => r.score > 0)
+    .sort((a, b) => b.score - a.score)
+    .map(({ score, ...rest }) => rest);
 }
 
 export async function GET(req: Request) {

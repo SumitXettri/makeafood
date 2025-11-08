@@ -320,7 +320,7 @@ export default function RecipeDetails() {
           </h3>
           <p className="text-gray-600 mb-6">{error}</p>
           <Link
-            href="/search"
+            href="/recipes"
             className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
           >
             Go Back

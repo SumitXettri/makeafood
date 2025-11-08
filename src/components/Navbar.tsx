@@ -62,7 +62,7 @@ export default function Navbar() {
     const trimmed = query.trim();
     if (!trimmed) return;
 
-    router.push(`/search?query=${encodeURIComponent(trimmed)}`);
+    router.push(`/recipes?query=${encodeURIComponent(trimmed)}`);
     setQuery("");
     setSearchOpen(false);
     setMobileMenuOpen(false);
@@ -88,7 +88,7 @@ export default function Navbar() {
           {/* Desktop Navigation */}
           <div className="hidden md:flex items-center gap-6">
             <a
-              href="/search"
+              href="/recipes"
               className="text-gray-700 hover:text-orange-600 transition font-medium flex items-center gap-2"
             >
               <MenuIcon size={18} /> Recipes
@@ -147,7 +147,7 @@ export default function Navbar() {
             ) : (
               <>
                 <button
-                  onClick={() => router.push("/submit-recipe")}
+                  onClick={() => router.push("/addrecipe")}
                   className="px-5 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
                 >
                   <Plus size={18} /> Share Recipe
@@ -214,7 +214,7 @@ export default function Navbar() {
         {mobileMenuOpen && (
           <div className="md:hidden mt-4 py-4 border-t border-orange-100 space-y-3 animate-in slide-in-from-top">
             <a
-              href="/search"
+              href="/recipes"
               className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
               onClick={() => setMobileMenuOpen(false)}
             >
@@ -264,7 +264,7 @@ export default function Navbar() {
                 </div>
                 <button
                   onClick={() => {
-                    router.push("/submit-recipe");
+                    router.push("/addrecipe");
                     setMobileMenuOpen(false);
                   }}
                   className="w-full px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"

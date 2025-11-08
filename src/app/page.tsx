@@ -153,7 +153,7 @@ export default function HomePage() {
   const handleSearch = (query: string) => {
     if (!query.trim()) return;
     console.log("Searching for:", hoveredCard);
-    router.push(`/search?query=${encodeURIComponent(query)}`);
+    router.push(`/recipes?query=${encodeURIComponent(query)}`);
   };
 
   return (
@@ -325,7 +325,7 @@ export default function HomePage() {
               your recipes
             </p>
             <button className="px-8 py-4 bg-white text-orange-600 rounded-xl font-bold text-lg hover:scale-105 transition-transform shadow-xl">
-              <Link href={"/submit-recipe"}>Start Sharing Today</Link>
+              <Link href={"/addrecipe"}>Start Sharing Today</Link>
             </button>
           </div>
         </section>
@@ -353,7 +353,7 @@ export default function HomePage() {
               <ul className="space-y-2 text-sm text-gray-600">
                 <li>
                   <Link
-                    href={"/search"}
+                    href={"/recipes"}
                     className="hover:text-orange-600 transition"
                   >
                     Recipes

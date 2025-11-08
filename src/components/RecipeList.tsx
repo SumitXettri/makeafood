@@ -177,7 +177,7 @@ export default function RecipeList({
               : "Start exploring by searching for your favorite dishes."}
           </p>
           <button
-            onClick={() => router.push("/search")}
+            onClick={() => router.push("/recipes")}
             className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
           >
             Explore Recipes
