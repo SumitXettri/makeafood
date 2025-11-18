@@ -12,6 +12,7 @@ import {
   LogOut,
   X,
 } from "lucide-react";
+import Image from "next/image";
 
 export default function Navbar() {
   const router = useRouter();
@@ -78,7 +79,7 @@ export default function Navbar() {
             onClick={() => router.push("/")}
           >
             <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center hover:scale-105 transition-transform">
-              <Utensils className="text-white" size={20} />
+              <Image src="/logo.svg" alt="Logo" width={34} height={34} />
             </div>
             <span className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
               MakeAfood
