@@ -81,7 +81,7 @@ export default function Navbar() {
               <Utensils className="text-white" size={20} />
             </div>
             <span className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
-              MakeFood
+              MakeAfood
             </span>
           </div>
 

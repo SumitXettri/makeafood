@@ -341,7 +341,7 @@ export default function HomePage() {
                   <Utensils className="text-white" size={16} />
                 </div>
                 <span className="text-xl font-bold text-gray-900">
-                  MakeFood
+                  MakeAfood
                 </span>
               </div>
               <p className="text-gray-600 text-sm">
@@ -419,7 +419,7 @@ export default function HomePage() {
             </div>
           </div>
           <div className="border-t border-gray-200 pt-8 text-center text-gray-500 text-sm">
-            <p>© 2024 MakeFood. Made with ❤️ for food lovers everywhere.</p>
+            <p>© 2024 MakeAfood. Made with ❤️ for food lovers everywhere.</p>
           </div>
         </div>
       </footer>
