@@ -149,7 +149,7 @@ export default function Navbar() {
               <>
                 <button
                   onClick={() => router.push("/addrecipe")}
-                  className="px-5 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
+                  className="px-5 py-2 bg-gradient-to-r cursor-pointer from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
                 >
                   <Plus size={18} /> Share Recipe
                 </button>

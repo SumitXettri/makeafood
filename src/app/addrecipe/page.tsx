@@ -88,126 +88,146 @@ export default function SubmitRecipePage() {
   };
 
   return (
-    <div className="relative min-h-screen flex items-center justify-center bg-gradient-to-br from-orange-100 via-red-100 to-yellow-100 p-6">
-      {/* Background decoration */}
-      <div className="absolute inset-0 bg-[url('/food-pattern.svg')] opacity-10 bg-cover bg-center"></div>
+    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 py-8 px-4">
+      <div className="max-w-3xl mx-auto">
+        {/* Simple Header */}
+        <div className="text-center mb-8">
+          <h1 className="text-3xl font-bold text-gray-800 mb-2 flex items-center justify-center gap-2">
+            <FaUtensils className="text-orange-600" />
+            Submit Recipe
+          </h1>
+          <p className="text-gray-600 text-sm">
+            Share your recipe with the community
+          </p>
+        </div>
 
-      <div className="relative bg-white/90 backdrop-blur-md rounded-3xl shadow-2xl w-full max-w-2xl p-10 border border-orange-200">
-        {/* Header */}
-        <h1 className="text-3xl font-extrabold text-orange-700 mb-2 text-center flex items-center justify-center gap-2">
-          <FaUtensils /> Share Your Recipe
-        </h1>
-        <p className="text-center text-gray-600 mb-6">
-          Inspire food lovers by adding your delicious creation 🍲
-        </p>
+        {/* Clean Form Card */}
+        <div className="bg-white rounded-2xl shadow-lg p-8">
+          <form onSubmit={handleSubmit} className="space-y-6">
+            {/* Title */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Recipe Title *
+              </label>
+              <div className="relative">
+                <MdOutlineRestaurantMenu className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <input
+                  type="text"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+                  placeholder="e.g. Spicy Chicken Curry"
+                />
+              </div>
+            </div>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="space-y-5">
-          {/* Title */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Recipe Title
-            </label>
-            <div className="flex items-center border rounded-lg px-3 py-2 focus-within:ring-2 focus-within:ring-orange-400 bg-white shadow-sm">
-              <MdOutlineRestaurantMenu className="text-orange-500 mr-2" />
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                className="w-full outline-none bg-transparent"
-                placeholder="e.g. Spicy Chicken Curry"
+            {/* Description */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Description
+              </label>
+              <textarea
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                rows={4}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition resize-none"
+                placeholder="Brief description of your recipe..."
               />
             </div>
-          </div>
 
-          {/* Description */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Description
-            </label>
-            <textarea
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              rows={3}
-              className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-400 outline-none shadow-sm"
-              placeholder="A short description about your recipe..."
-            />
-          </div>
+            {/* Time & Servings Row */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              {/* Prep Time */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Prep Time (min)
+                </label>
+                <div className="relative">
+                  <FaClock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="number"
+                    placeholder="15"
+                    value={prepTime || ""}
+                    onChange={(e) => setPrepTime(Number(e.target.value))}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+                  />
+                </div>
+              </div>
 
-          {/* Prep & Cook Time */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className="flex items-center border rounded-lg px-3 py-2 bg-white shadow-sm">
-              <FaClock className="text-orange-500 mr-2" />
-              <input
-                type="number"
-                placeholder="Prep (min)"
-                value={prepTime || ""}
-                onChange={(e) => setPrepTime(Number(e.target.value))}
-                className="w-full outline-none bg-transparent"
-              />
+              {/* Cook Time */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Cook Time (min)
+                </label>
+                <div className="relative">
+                  <FaClock className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="number"
+                    placeholder="30"
+                    value={cookTime || ""}
+                    onChange={(e) => setCookTime(Number(e.target.value))}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+                  />
+                </div>
+              </div>
+
+              {/* Servings */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Servings
+                </label>
+                <div className="relative">
+                  <FaUsers className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                  <input
+                    type="number"
+                    placeholder="4"
+                    value={servings || ""}
+                    onChange={(e) => setServings(Number(e.target.value))}
+                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+                  />
+                </div>
+              </div>
             </div>
-            <div className="flex items-center border rounded-lg px-3 py-2 bg-white shadow-sm">
-              <FaClock className="text-red-500 mr-2" />
-              <input
-                type="number"
-                placeholder="Cook (min)"
-                value={cookTime || ""}
-                onChange={(e) => setCookTime(Number(e.target.value))}
-                className="w-full outline-none bg-transparent"
-              />
+
+            {/* Difficulty */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Difficulty Level
+              </label>
+              <div className="relative">
+                <FaListUl className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+                <select
+                  value={difficulty}
+                  onChange={(e) =>
+                    setDifficulty(e.target.value as "Easy" | "Medium" | "Hard")
+                  }
+                  className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition appearance-none bg-white cursor-pointer"
+                >
+                  <option value="Easy">Easy</option>
+                  <option value="Medium">Medium</option>
+                  <option value="Hard">Hard</option>
+                </select>
+              </div>
             </div>
-          </div>
 
-          {/* Servings */}
-          <div className="flex items-center border rounded-lg px-3 py-2 bg-white shadow-sm">
-            <FaUsers className="text-yellow-500 mr-2" />
-            <input
-              type="number"
-              placeholder="Servings"
-              value={servings || ""}
-              onChange={(e) => setServings(Number(e.target.value))}
-              className="w-full outline-none bg-transparent"
-            />
-          </div>
+            {/* Error Message */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg text-sm">
+                {error}
+              </div>
+            )}
 
-          {/* Difficulty */}
-          <div>
-            <label className="block text-sm font-semibold text-gray-700 mb-1">
-              Difficulty
-            </label>
-            <div className="flex items-center border rounded-lg px-3 py-2 bg-white shadow-sm">
-              <FaListUl className="text-green-500 mr-2" />
-              <select
-                value={difficulty}
-                onChange={(e) =>
-                  setDifficulty(e.target.value as "Easy" | "Medium" | "Hard")
-                }
-                className="w-full outline-none bg-transparent"
-              >
-                <option value="Easy">Easy</option>
-                <option value="Medium">Medium</option>
-                <option value="Hard">Hard</option>
-              </select>
-            </div>
-          </div>
-
-          {/* Error */}
-          {error && (
-            <p className="text-red-600 text-sm font-medium text-center">
-              {error}
-            </p>
-          )}
-
-          {/* Submit */}
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-3 rounded-xl font-bold text-lg shadow-md hover:scale-105 transition-transform disabled:opacity-60"
-          >
-            {loading ? "Submitting..." : "✨ Submit Recipe"}
-          </button>
-        </form>
+            {/* Submit Button */}
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 text-white font-semibold py-3 px-6 rounded-lg shadow-md hover:shadow-lg transition-all duration-200 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {loading ? "Submitting..." : "Submit Recipe"}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
