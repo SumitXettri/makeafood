@@ -1,4 +1,4 @@
-// app/api/recipes/route.ts
+import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 
@@ -52,8 +52,8 @@ interface DatabaseRecipe {
   updated_at: string;
   image_url: string | null;
   video_url: string | null;
-  ingredients: any; // JSONB
-  instructions: any; // JSONB
+  ingredients: unknown; // tightened from `any`
+  instructions: unknown; // tightened from `any`
   cuisine: string | null;
   tags: string[] | null;
   likes: number;
@@ -91,28 +91,41 @@ function getYouTubeSearchLink(recipeTitle: string): string {
 }
 
 // Helper: parse ingredients from JSONB
-function parseIngredients(ingredients: any): string[] {
+function parseIngredients(ingredients: unknown): string[] {
   if (!ingredients) return [];
 
-  // If it's already an array of strings
+  // If it's already an array
   if (Array.isArray(ingredients)) {
-    if (typeof ingredients[0] === "string") {
-      return ingredients;
+    if (ingredients.length === 0) return [];
+    const first = ingredients[0];
+
+    // Array of strings
+    if (typeof first === "string") {
+      return ingredients as string[];
     }
-    // If it's an array of objects like [{name: "flour", amount: "2 cups"}]
-    return ingredients.map((ing: any) => {
-      if (typeof ing === "object") {
-        return `${ing.amount || ""} ${ing.name || ing.ingredient || ""}`.trim();
+
+    // Array of objects like [{name: "flour", amount: "2 cups"}]
+    return (ingredients as unknown[]).map((ing) => {
+      if (ing && typeof ing === "object" && !Array.isArray(ing)) {
+        const obj = ing as Record<string, unknown>;
+        const amount = obj.amount ?? obj.quantity ?? obj.qty ?? "";
+        const name =
+          obj.name ?? obj.ingredient ?? obj.ingredientName ?? obj.item ?? "";
+        return `${String(amount)} ${String(name)}`.trim();
       }
       return String(ing);
     });
   }
 
-  // If it's an object
-  if (typeof ingredients === "object") {
-    return Object.values(ingredients).filter(Boolean).map(String);
+  // If it's an object (e.g., { "0": "salt", "1": "pepper" })
+  if (typeof ingredients === "object" && !Array.isArray(ingredients)) {
+    const obj = ingredients as Record<string, unknown>;
+    return Object.values(obj)
+      .filter(Boolean)
+      .map((v) => String(v));
   }
 
+  // Fallback
   return [];
 }
 
@@ -265,34 +278,40 @@ function rankRecipes(
   return scored
     .filter((r) => r.score > 0)
     .sort((a, b) => b.score - a.score)
-    .map(({ score, ...rest }) => rest);
+    .map(({ score: _score, ...rest }) => rest); // renamed destructured score to _score to avoid unused-var
 }
 
-export async function GET(req: Request) {
-  const { searchParams } = new URL(req.url);
-  const query = searchParams.get("query") || "";
-  const apiKey = process.env.SPOONACULAR_API_KEY;
-  const genre = searchParams.get("genre");
-  const difficulty = searchParams.get("difficulty");
-  const country = searchParams.get("country");
-  const mealType = searchParams.get("mealType");
-  const diet = searchParams.get("diet");
-
-  const cacheKey =
-    query +
-    (genre || "") +
-    (difficulty || "") +
-    (country || "") +
-    (mealType || "") +
-    (diet || "");
-  const now = Date.now();
-
-  // Return cached data if valid
-  if (cache[cacheKey] && cache[cacheKey].expires > now) {
-    return NextResponse.json(cache[cacheKey].data);
-  }
-
+export async function GET(req: NextRequest) {
   try {
+    const url = new URL(req.url);
+    const params = url.searchParams;
+    const query = params.get("query") ?? "";
+    const apiKey = process.env.SPOONACULAR_API_KEY;
+    const genre = params.get("genre");
+    const difficulty = params.get("difficulty");
+    const country = params.get("country");
+    const mealType = params.get("mealType");
+    const diet = params.get("diet");
+
+    // use page & limit (fixes unused variable warnings)
+    const page = Math.max(1, Number(params.get("page") ?? 1));
+    const limit = Math.max(1, Number(params.get("limit") ?? 12));
+
+    const cacheKey =
+      query +
+      (genre || "") +
+      (difficulty || "") +
+      (country || "") +
+      (mealType || "") +
+      (diet || "") +
+      `:p=${page}:l=${limit}`;
+    const now = Date.now();
+
+    // Return cached data if valid
+    if (cache[cacheKey] && cache[cacheKey].expires > now) {
+      return NextResponse.json(cache[cacheKey].data);
+    }
+
     // 🚀 Fetch from all sources concurrently
     const [spoonResults, mealResults, dbResults] = await Promise.all([
       fetchSpoonacularRecipes(query, genre, apiKey),
@@ -309,8 +328,9 @@ export async function GET(req: Request) {
         ? rankRecipes(allRecipes, query, genre, difficulty)
         : allRecipes.sort(() => Math.random() - 0.5);
 
-    // Limit & cache
-    const finalResults = rankedResults.slice(0, 12);
+    // Limit & cache (use page/limit)
+    const start = (page - 1) * limit;
+    const finalResults = rankedResults.slice(start, start + limit);
     cache[cacheKey] = { data: finalResults, expires: now + 3 * 60 * 1000 };
 
     return NextResponse.json(finalResults);

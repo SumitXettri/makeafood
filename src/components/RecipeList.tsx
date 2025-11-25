@@ -476,7 +476,9 @@ export default function RecipeList({
       {!hasMore && recipes.length > 0 && (
         <div className="flex flex-col items-center justify-center mt-12 py-8 border-t border-gray-200">
           <div className="text-gray-400 text-4xl mb-3">🎉</div>
-          <p className="text-gray-600 font-medium">You've reached the end!</p>
+          <p className="text-gray-600 font-medium">
+            You&lsquo;ve reached the end!
+          </p>
           <p className="text-gray-500 text-sm mt-1">No more recipes to load</p>
         </div>
       )}
