@@ -101,6 +101,77 @@ export default function HomePage() {
       cuisine: "Vegan",
       color: "from-green-400 to-lime-600",
     },
+    {
+      id: 8,
+      idd: "m-54123",
+      title: "Shakshuka",
+      image:
+        "https://images.unsplash.com/photo-1604908177522-4b8fd7f9f7d6?w=800&q=80",
+      time: "30 min",
+      difficulty: "Easy",
+      rating: 4.6,
+      cuisine: "Middle Eastern",
+      color: "from-indigo-400 to-purple-600",
+    },
+    {
+      id: 9,
+      idd: "s-54088",
+      title: "Beef Bulgogi",
+      image:
+        "https://images.unsplash.com/photo-1604908177115-8c2d8b3b4b6b?w=800&q=80",
+      time: "35 min",
+      difficulty: "Medium",
+      rating: 4.8,
+      cuisine: "Korean",
+      color: "from-red-400 to-rose-500",
+    },
+    {
+      id: 10,
+      idd: "m-54177",
+      title: "Falafel Wrap",
+      image:
+        "https://images.unsplash.com/photo-1551183053-bf91a1d81141?w=800&q=80",
+      time: "20 min",
+      difficulty: "Easy",
+      rating: 4.5,
+      cuisine: "Middle Eastern",
+      color: "from-emerald-400 to-green-600",
+    },
+    {
+      id: 11,
+      idd: "s-54290",
+      title: "Paneer Butter Masala",
+      image:
+        "https://www.themealdb.com/images/media/meals/uttuxy1511382185.jpg",
+      time: "45 min",
+      difficulty: "Medium",
+      rating: 4.7,
+      cuisine: "Indian",
+      color: "from-yellow-400 to-orange-500",
+    },
+    {
+      id: 12,
+      idd: "m-54321",
+      title: "Fish Tacos",
+      image:
+        "https://images.unsplash.com/photo-1544025162-d76694265947?w=800&q=80",
+      time: "25 min",
+      difficulty: "Easy",
+      rating: 4.6,
+      cuisine: "Mexican",
+      color: "from-cyan-400 to-blue-600",
+    },
+    {
+      id: 13,
+      idd: "s-54455",
+      title: "Chocolate Lava Cake",
+      image: "https://img.spoonacular.com/recipes/633508-556x370.jpg",
+      time: "40 min",
+      difficulty: "Hard",
+      rating: 4.9,
+      cuisine: "Dessert",
+      color: "from-pink-400 to-red-600",
+    },
   ];
 
   const categories = [

@@ -1,16 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
-import {
-  Clock,
-  Heart,
-  Star,
-  ChefHat,
-  Sparkles,
-  TrendingUp,
-  Search,
-  ChevronRight,
-} from "lucide-react";
+import Link from "next/link";
 import Image from "next/image";
 
 interface Recipe {
@@ -19,326 +9,477 @@ interface Recipe {
   image: string;
   source: string;
   description: string;
-  prep_time_minutes?: number;
-  cook_time_minutes?: number;
-  difficulty_level?: "Easy" | "Medium" | "Hard";
-  servings?: number;
-  rating?: number;
+  ingredients: string[];
+  prep_time_minutes: number;
+  cook_time_minutes: number;
+  servings: number;
+  difficulty_level: string;
+  youtube_link: string;
+  // Database-specific fields
+  likes?: number;
   views?: number;
+  rating?: number;
+  tags?: string[];
 }
 
 interface RecipeListProps {
   query?: string;
-  genre?: string; // Add genre prop
+  cuisine?: string;
+  difficulty?: string;
+  country?: string;
+  mealType?: string;
+  diet?: string;
+  time?: string;
 }
 
 export default function RecipeList({
   query = "",
-  genre = "",
+  cuisine = "",
+  difficulty = "",
+  country = "",
+  mealType = "",
+  diet = "",
+  time = "",
 }: RecipeListProps) {
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [favorites, setFavorites] = useState<Set<string>>(new Set());
-  const router = useRouter();
+  const [error, setError] = useState("");
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [likedRecipes, setLikedRecipes] = useState<Set<string>>(new Set());
+
+  const toggleLike = async (recipeId: string, e: React.MouseEvent) => {
+    e.preventDefault(); // Prevent navigation when clicking like button
+
+    const isLiked = likedRecipes.has(recipeId);
+
+    // Optimistic update
+    setLikedRecipes((prev) => {
+      const newSet = new Set(prev);
+      if (isLiked) {
+        newSet.delete(recipeId);
+      } else {
+        newSet.add(recipeId);
+      }
+      return newSet;
+    });
+
+    // Update recipe likes count
+    setRecipes((prev) =>
+      prev.map((recipe) => {
+        if (recipe.id === recipeId) {
+          return {
+            ...recipe,
+            likes: (recipe.likes || 0) + (isLiked ? -1 : 1),
+          };
+        }
+        return recipe;
+      })
+    );
+
+    try {
+      // Call your API to persist the like
+      await fetch(`/api/recipes/${recipeId}/like`, {
+        method: isLiked ? "DELETE" : "POST",
+      });
+    } catch (err) {
+      console.error("Error toggling like:", err);
+      // Revert on error
+      setLikedRecipes((prev) => {
+        const newSet = new Set(prev);
+        if (isLiked) {
+          newSet.add(recipeId);
+        } else {
+          newSet.delete(recipeId);
+        }
+        return newSet;
+      });
+      setRecipes((prev) =>
+        prev.map((recipe) => {
+          if (recipe.id === recipeId) {
+            return {
+              ...recipe,
+              likes: (recipe.likes || 0) + (isLiked ? 1 : -1),
+            };
+          }
+          return recipe;
+        })
+      );
+    }
+  };
 
   useEffect(() => {
-    async function fetchRecipes() {
+    const fetchRecipes = async () => {
       setLoading(true);
-      setError(null);
+      setError("");
+      setPage(1);
+      setHasMore(true);
+
       try {
+        // Build query params for API
         const params = new URLSearchParams();
         if (query) params.set("query", query);
-        if (genre) params.set("genre", genre);
+        if (cuisine) params.set("genre", cuisine);
+        if (difficulty) params.set("difficulty", difficulty);
+        if (country) params.set("country", country);
+        if (mealType) params.set("mealType", mealType);
+        if (diet) params.set("diet", diet);
+        if (time) params.set("time", time);
+        params.set("page", "1");
+        params.set("limit", "12");
 
-        const res = await fetch(`/api/recipes?${params.toString()}`);
-        const data = await res.json();
+        const response = await fetch(`/api/recipes?${params.toString()}`);
 
-        if (data.error) throw new Error(data.error);
-
-        // Ensure data is an array
-        if (!Array.isArray(data)) {
-          throw new Error("Invalid response format");
+        if (!response.ok) {
+          throw new Error("Failed to fetch recipes");
         }
 
-        console.log("Fetching recipes for query:", query);
-        console.log("Received data:", data);
-
+        const data = await response.json();
         setRecipes(data);
+        setHasMore(data.length === 12);
       } catch (err) {
         console.error("Error fetching recipes:", err);
-        setError(
-          err instanceof Error ? err.message : "Failed to fetch recipes"
-        );
-        setRecipes([]);
+        setError("Failed to load recipes. Please try again.");
       } finally {
         setLoading(false);
       }
-    }
+    };
 
     fetchRecipes();
-  }, [query, genre]); // Add genre to dependency array
+  }, [query, cuisine, difficulty, country, mealType, diet, time]);
 
-  const toggleFavorite = (e: React.MouseEvent, recipeId: string) => {
-    e.stopPropagation();
-    setFavorites((prev) => {
-      const newFavorites = new Set(prev);
-      if (newFavorites.has(recipeId)) {
-        newFavorites.delete(recipeId);
-      } else {
-        newFavorites.add(recipeId);
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+
+    setLoadingMore(true);
+    try {
+      const params = new URLSearchParams();
+      if (query) params.set("query", query);
+      if (cuisine) params.set("genre", cuisine);
+      if (difficulty) params.set("difficulty", difficulty);
+      if (country) params.set("country", country);
+      if (mealType) params.set("mealType", mealType);
+      if (diet) params.set("diet", diet);
+      if (time) params.set("time", time);
+      params.set("page", (page + 1).toString());
+      params.set("limit", "12");
+
+      const response = await fetch(`/api/recipes?${params.toString()}`);
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch more recipes");
       }
-      return newFavorites;
-    });
-  };
 
-  const getDifficultyColor = (difficulty?: string) => {
-    switch (difficulty) {
-      case "Easy":
-        return "text-green-600 bg-green-50";
-      case "Medium":
-        return "text-orange-600 bg-orange-50";
-      case "Hard":
-        return "text-red-600 bg-red-50";
-      default:
-        return "text-gray-600 bg-gray-50";
+      const data = await response.json();
+      setRecipes((prev) => [...prev, ...data]);
+      setPage((prev) => prev + 1);
+      setHasMore(data.length === 12);
+    } catch (err) {
+      console.error("Error loading more recipes:", err);
+    } finally {
+      setLoadingMore(false);
     }
   };
 
-  const getTotalTime = (recipe: Recipe) => {
-    const prep = recipe.prep_time_minutes || 0;
-    const cook = recipe.cook_time_minutes || 0;
-    return prep + cook;
-  };
-
+  // Loading state
   if (loading) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 p-6">
-        <div className="max-w-7xl mx-auto">
-          <div className="mb-8">
-            <div className="h-8 bg-gray-200 rounded-lg w-64 animate-pulse mb-2"></div>
-            <div className="h-4 bg-gray-200 rounded w-96 animate-pulse"></div>
-          </div>
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-            {[1, 2, 3, 4, 5, 6, 7, 8].map((i) => (
-              <div
-                key={i}
-                className="bg-white rounded-2xl overflow-hidden shadow-lg animate-pulse"
-              >
-                <div className="h-56 bg-gray-200"></div>
-                <div className="p-5 space-y-3">
-                  <div className="h-4 bg-gray-200 rounded"></div>
-                  <div className="h-4 bg-gray-200 rounded w-3/4"></div>
-                  <div className="h-3 bg-gray-200 rounded w-1/2"></div>
-                </div>
-              </div>
-            ))}
-          </div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="relative">
+          <div className="animate-spin rounded-full h-20 w-20 border-4 border-orange-200" />
+          <div className="animate-spin rounded-full h-20 w-20 border-4 border-t-orange-500 absolute top-0 left-0" />
         </div>
+        <p className="text-gray-600 font-medium animate-pulse">
+          Searching all recipes...
+        </p>
       </div>
     );
   }
 
+  // Error state
   if (error) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 flex items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          <div className="w-20 h-20 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <Search className="text-red-500" size={40} />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">
-            Oops! Something went wrong
-          </h3>
-          <p className="text-gray-600 mb-6">{error}</p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
-          >
-            Try Again
-          </button>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="text-red-500 text-6xl">⚠️</div>
+        <p className="text-gray-600 font-medium">{error}</p>
+        <button
+          onClick={() => window.location.reload()}
+          className="px-6 py-2 bg-orange-500 hover:bg-orange-600 text-white rounded-lg transition-all"
+        >
+          Try Again
+        </button>
       </div>
     );
   }
 
-  if (!Array.isArray(recipes) || recipes.length === 0) {
+  // No results state
+  if (recipes.length === 0) {
     return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 flex items-center justify-center p-6">
-        <div className="text-center max-w-md">
-          <div className="w-20 h-20 bg-orange-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <ChefHat className="text-orange-500" size={40} />
-          </div>
-          <h3 className="text-2xl font-bold text-gray-900 mb-2">
-            No recipes found
-          </h3>
-          <p className="text-gray-600 mb-6">
-            {query
-              ? `We couldn't find any recipes matching "${query}". Try a different search term!`
-              : "Start exploring by searching for your favorite dishes."}
-          </p>
-          <button
-            onClick={() => router.push("/recipes")}
-            className="px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
-          >
-            Explore Recipes
-          </button>
-        </div>
+      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
+        <div className="text-gray-400 text-6xl">🍽️</div>
+        <p className="text-gray-600 font-medium text-lg">
+          No recipes found matching your criteria
+        </p>
+        <p className="text-gray-500 text-sm">
+          Try adjusting your filters or search terms
+        </p>
       </div>
     );
   }
+
+  // Get difficulty badge color
+  const getDifficultyColor = (level: string) => {
+    const normalizedLevel = level.toLowerCase();
+    if (normalizedLevel === "easy")
+      return "bg-emerald-100 text-emerald-700 border-emerald-200";
+    if (normalizedLevel === "medium")
+      return "bg-amber-100 text-amber-700 border-amber-200";
+    if (normalizedLevel === "hard")
+      return "bg-rose-100 text-rose-700 border-rose-200";
+    return "bg-gray-100 text-gray-700 border-gray-200";
+  };
+
+  // Format number for display
+  const formatNumber = (num: number) => {
+    if (num >= 1000) return `${(num / 1000).toFixed(1)}k`;
+    return num.toString();
+  };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 py-8 px-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Section */}
-        <div className="mb-8">
-          <div className="flex items-center justify-between mb-4">
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900 mb-2 flex items-center gap-3">
-                {query ? (
-                  <>
-                    <Search className="text-orange-500" size={36} />
-                    Search Results
-                  </>
-                ) : (
-                  <>
-                    <Sparkles className="text-orange-500" size={36} />
-                    All Recipes
-                  </>
-                )}
-              </h1>
-              <p className="text-gray-600">
-                {query
-                  ? `Found ${recipes.length} recipe${
-                      recipes.length !== 1 ? "s" : ""
-                    } for "${query}"`
-                  : `Discover ${recipes.length} amazing recipes`}
-              </p>
-            </div>
-            <div className="hidden md:flex items-center gap-2">
-              <button className="px-4 py-2 bg-white border border-orange-200 text-gray-700 rounded-xl hover:bg-orange-50 transition font-medium flex items-center gap-2">
-                <TrendingUp size={18} />
-                Sort
-              </button>
-            </div>
-          </div>
-        </div>
+    <div className="max-w-7xl mx-auto px-4">
+      {/* Results header */}
+      <div className="mb-8 flex items-center justify-between">
+        <h2 className="text-3xl font-bold text-gray-900">
+          {recipes.length} Recipe{recipes.length !== 1 ? "s" : ""} Found
+        </h2>
+      </div>
 
-        {/* Recipe Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
-          {recipes.map((recipe) => {
-            const totalTime = getTotalTime(recipe);
-            const isFavorite = favorites.has(recipe.id);
+      {/* Recipe grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+        {recipes.map((recipe) => (
+          <Link
+            key={recipe.id}
+            href={`/recipes/${recipe.id}`}
+            className="group"
+          >
+            <div className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden h-full flex flex-col border border-gray-100">
+              {/* Image */}
+              <div className="relative h-48 overflow-hidden bg-gray-100">
+                <Image
+                  fill
+                  src={recipe.image}
+                  alt={recipe.title}
+                  className="object-cover group-hover:scale-105 transition-transform duration-500"
+                  sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                />
 
-            return (
-              <div
-                key={recipe.id}
-                onClick={() => router.push(`/recipe/${recipe.id}`)}
-                className="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 transform hover:-translate-y-2"
-              >
-                {/* Image Section */}
-                <div className="relative h-56 overflow-hidden">
-                  <Image
-                    width={120}
-                    height={120}
-                    src={recipe.image}
-                    alt={recipe.title}
-                    className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent"></div>
-
-                  {/* Favorite Button */}
-                  <button
-                    onClick={(e) => toggleFavorite(e, recipe.id)}
-                    className={`absolute top-4 right-4 w-10 h-10 ${
-                      isFavorite ? "bg-red-500" : "bg-white/90 backdrop-blur-sm"
-                    } rounded-full flex items-center justify-center hover:scale-110 transition-all shadow-lg z-10`}
+                {/* Like button */}
+                <button
+                  onClick={(e) => toggleLike(recipe.id, e)}
+                  className="absolute top-3 left-3 p-2 bg-white/90 hover:bg-white rounded-full shadow-lg transition-all duration-300 hover:scale-110 active:scale-95"
+                >
+                  <svg
+                    className={`w-5 h-5 transition-colors ${
+                      likedRecipes.has(recipe.id)
+                        ? "fill-red-500 text-red-500"
+                        : "fill-none text-gray-600"
+                    }`}
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                    strokeWidth={2}
                   >
-                    <Heart
-                      className={`${
-                        isFavorite ? "text-white fill-white" : "text-red-500"
-                      } cursor-pointer`}
-                      size={20}
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                     />
-                  </button>
+                  </svg>
+                </button>
 
-                  {/* Difficulty Badge */}
-                  {recipe.difficulty_level && (
-                    <div className="absolute top-4 left-4 cursor-default">
-                      <span
-                        className={`px-3 py-1 ${getDifficultyColor(
-                          recipe.difficulty_level
-                        )} rounded-full text-xs font-semibold backdrop-blur-sm`}
-                      >
-                        {recipe.difficulty_level}
-                      </span>
-                    </div>
-                  )}
-
-                  {/* Time Badge */}
-                  {totalTime > 0 && (
-                    <div className="absolute bottom-4 left-4 cursor-default">
-                      <div className="flex items-center gap-1 px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-gray-800">
-                        <Clock size={14} className="text-orange-500" />
-                        <span>{totalTime} min</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-                {/* Content Section */}
-                <div className="p-5 cursor-pointer">
-                  <h3 className="font-bold text-lg text-gray-900 mb-2 group-hover:text-orange-600 transition line-clamp-2">
-                    {recipe.title}
-                  </h3>
-
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">
-                    {recipe.description || "Delicious recipe to try at home"}
-                  </p>
-
-                  {/* Stats Row */}
-                  <div className="flex items-center justify-between pt-4 border-t border-gray-100">
+                {/* Stats overlay for Community recipes */}
+                {recipe.source === "Community" && (
+                  <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/80 via-black/40 to-transparent p-4 pt-12">
                     <div className="flex items-center gap-4">
-                      {recipe.rating && (
-                        <div className="flex items-center gap-1 text-sm">
-                          <Star
-                            className="text-yellow-500 fill-yellow-500"
-                            size={16}
-                          />
-                          <span className="font-semibold text-gray-700">
-                            {recipe.rating}
+                      {recipe.rating !== undefined && recipe.rating > 0 && (
+                        <div className="flex items-center gap-1.5 text-white">
+                          <svg
+                            className="w-5 h-5 fill-yellow-400"
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                          </svg>
+                          <span className="font-bold text-lg">
+                            {recipe.rating.toFixed(1)}
                           </span>
                         </div>
                       )}
-
-                      <div className="text-xs text-gray-500">
-                        {recipe.servings ? recipe.servings : "1"} serving
-                      </div>
+                      {recipe.likes !== undefined && recipe.likes > 0 && (
+                        <div className="flex items-center gap-1.5 text-white">
+                          <svg
+                            className="w-5 h-5 fill-red-400"
+                            viewBox="0 0 20 20"
+                          >
+                            <path
+                              fillRule="evenodd"
+                              d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span className="font-semibold">
+                            {formatNumber(recipe.likes)}
+                          </span>
+                        </div>
+                      )}
+                      {recipe.views !== undefined && recipe.views > 0 && (
+                        <div className="flex items-center gap-1.5 text-white">
+                          <svg
+                            className="w-5 h-5 fill-blue-300"
+                            viewBox="0 0 20 20"
+                          >
+                            <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+                            <path
+                              fillRule="evenodd"
+                              d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z"
+                              clipRule="evenodd"
+                            />
+                          </svg>
+                          <span className="font-semibold">
+                            {formatNumber(recipe.views)}
+                          </span>
+                        </div>
+                      )}
                     </div>
-
-                    <ChevronRight
-                      className="text-orange-500 group-hover:translate-x-1 transition-transform"
-                      size={20}
-                    />
                   </div>
-                </div>
-
-                {/* Hover Overlay */}
-                <div className="absolute inset-0 bg-gradient-to-t from-orange-500/0 to-orange-500/0 group-hover:from-orange-500/10 group-hover:to-transparent transition-all duration-300 pointer-events-none"></div>
+                )}
               </div>
-            );
-          })}
-        </div>
 
-        {/* Load More Button (Optional) */}
-        {recipes.length >= 12 && (
-          <div className="mt-12 text-center">
-            <button className="px-8 py-4 bg-white border-2 border-orange-200 text-orange-600 rounded-xl font-semibold hover:bg-orange-50 hover:border-orange-300 transition-all hover:scale-105">
-              Load More Recipes
-            </button>
-          </div>
-        )}
+              {/* Content */}
+              <div className="p-5 flex-1 flex flex-col">
+                {/* Title */}
+                <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors line-clamp-2 leading-tight">
+                  {recipe.title}
+                </h3>
+
+                {/* Description */}
+                <p className="text-gray-600 text-xs mb-3 line-clamp-2 flex-1 leading-relaxed">
+                  {recipe.description}
+                </p>
+
+                {/* Tags (for Community recipes) */}
+                {recipe.tags && recipe.tags.length > 0 && (
+                  <div className="flex flex-wrap gap-1.5 mb-3">
+                    {recipe.tags.slice(0, 2).map((tag, idx) => (
+                      <span
+                        key={idx}
+                        className="px-2 py-0.5 bg-gray-50 text-gray-700 rounded text-xs font-medium border border-gray-200"
+                      >
+                        #{tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+
+                {/* Meta info */}
+                <div className="flex items-center justify-between pt-3 border-t border-gray-100">
+                  <div className="flex items-center gap-3 text-xs text-gray-600">
+                    {recipe.prep_time_minutes + recipe.cook_time_minutes >
+                      0 && (
+                      <div className="flex items-center gap-1">
+                        <svg
+                          className="w-3.5 h-3.5 text-orange-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                          />
+                        </svg>
+                        <span className="font-medium">
+                          {recipe.prep_time_minutes + recipe.cook_time_minutes}m
+                        </span>
+                      </div>
+                    )}
+                    {recipe.servings > 0 && (
+                      <div className="flex items-center gap-1">
+                        <svg
+                          className="w-3.5 h-3.5 text-orange-500"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            strokeWidth={2}
+                            d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
+                          />
+                        </svg>
+                        <span className="font-medium">{recipe.servings}</span>
+                      </div>
+                    )}
+                  </div>
+                  <span
+                    className={`px-2.5 py-0.5 rounded-lg text-xs font-semibold border ${getDifficultyColor(
+                      recipe.difficulty_level
+                    )}`}
+                  >
+                    {recipe.difficulty_level}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </Link>
+        ))}
       </div>
+
+      {/* Load More Button */}
+      {hasMore && recipes.length > 0 && (
+        <div className="flex justify-center mt-12">
+          <button
+            onClick={loadMore}
+            disabled={loadingMore}
+            className="px-8 py-4 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white font-semibold rounded-xl shadow-lg hover:shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-3 group"
+          >
+            {loadingMore ? (
+              <>
+                <div className="animate-spin rounded-full h-5 w-5 border-2 border-white border-t-transparent" />
+                <span>Loading more recipes...</span>
+              </>
+            ) : (
+              <>
+                <span>Load More Recipes</span>
+                <svg
+                  className="w-5 h-5 group-hover:translate-y-0.5 transition-transform"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M19 9l-7 7-7-7"
+                  />
+                </svg>
+              </>
+            )}
+          </button>
+        </div>
+      )}
+
+      {/* End of results message */}
+      {!hasMore && recipes.length > 0 && (
+        <div className="flex flex-col items-center justify-center mt-12 py-8 border-t border-gray-200">
+          <div className="text-gray-400 text-4xl mb-3">🎉</div>
+          <p className="text-gray-600 font-medium">You've reached the end!</p>
+          <p className="text-gray-500 text-sm mt-1">No more recipes to load</p>
+        </div>
+      )}
     </div>
   );
 }
