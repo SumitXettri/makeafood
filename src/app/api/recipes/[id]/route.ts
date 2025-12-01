@@ -255,11 +255,11 @@ export async function GET(
         youtube_link: string;
       }[] = [];
 
-      if ((dbData as any).cuisine) {
+      if (dbData.cuisine) {
         const { data: relatedData } = await supabase
           .from("recipes")
           .select("id, title, image_url")
-          .eq("cuisine", (dbData as any).cuisine)
+          .eq("cuisine", dbData.cuisine)
           .neq("id", numericId)
           .limit(6);
 
