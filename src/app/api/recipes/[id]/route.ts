@@ -156,7 +156,7 @@ export async function GET(
 
       console.log("Supabase raw response:", supRes);
 
-      const dbData = supRes.data;
+      const dbData = supRes.data as DatabaseRecipe | null;
       const dbError = supRes.error;
 
       if (dbError || !dbData) {
@@ -169,7 +169,7 @@ export async function GET(
 
       // --- Normalize ingredients ---
       let ingredients: string[] = [];
-      const rawIngredients = (dbData as Record<string, unknown>).ingredients;
+      const rawIngredients = dbData.ingredients;
 
       const parsePossibleJSON = (val: unknown): unknown => {
         if (typeof val !== "string") return val;
@@ -202,7 +202,7 @@ export async function GET(
       // --- Normalize instructions (string | array | JSON-string) ---
       let instructionsNormalized: string | string[] =
         "No instructions available.";
-      const rawInstructions = (dbData as Record<string, unknown>).instructions;
+      const rawInstructions = dbData.instructions;
       if (rawInstructions !== undefined && rawInstructions !== null) {
         const parsedInst = parsePossibleJSON(rawInstructions);
         if (Array.isArray(parsedInst)) {
@@ -225,27 +225,26 @@ export async function GET(
 
       const recipe = {
         id: `db-${numericId}`, // normalized id format
-        title: String((dbData as any).title ?? "Untitled"),
-        image: String((dbData as any).image_url ?? ""),
-        category: String((dbData as any).cuisine ?? "N/A"),
-        area: String((dbData as any).cuisine ?? "Unknown"),
+        title: String(dbData.title ?? "Untitled"),
+        image: String(dbData.image_url ?? ""),
+        category: String(dbData.cuisine ?? "N/A"),
+        area: String(dbData.cuisine ?? "Unknown"),
         instructions: instructionsNormalized,
         description:
-          String((dbData as any).description ?? "").trim() ||
+          String(dbData.description ?? "").trim() ||
           (typeof instructionsNormalized === "string"
             ? instructionsNormalized.slice(0, 150) +
               (String(instructionsNormalized).length > 150 ? "…" : "")
             : ""),
         source: "MakeAFood Database",
         ingredients,
-        prep_time_minutes: Number((dbData as any).prep_time_minutes ?? 0),
-        cook_time_minutes: Number((dbData as any).cook_time_minutes ?? 0),
-        servings: Number((dbData as any).servings ?? 0),
-        difficulty_level: (dbData as any).difficulty_level ?? "Medium",
+        prep_time_minutes: Number(dbData.prep_time_minutes ?? 0),
+        cook_time_minutes: Number(dbData.cook_time_minutes ?? 0),
+        servings: Number(dbData.servings ?? 0),
+        difficulty_level: dbData.difficulty_level ?? "Medium",
         youtube_link:
-          (dbData as any).video_url ??
-          getYouTubeSearchLink(String((dbData as any).title ?? "")),
-        tags: (dbData as any).tags ?? null,
+          dbData.video_url ?? getYouTubeSearchLink(String(dbData.title ?? "")),
+        tags: dbData.tags ?? null,
       };
 
       // related: keep existing logic but ensure IDs are prefixed `db-`
@@ -265,11 +264,11 @@ export async function GET(
           .limit(6);
 
         if (relatedData) {
-          related = (relatedData as any[]).map((r) => ({
+          related = (relatedData as DatabaseRecipe[]).map((r) => ({
             id: `db-${r.id}`,
-            title: r.title,
-            image: r.image_url || "",
-            youtube_link: getYouTubeSearchLink(r.title),
+            title: String(r.title ?? ""),
+            image: String(r.image_url ?? ""),
+            youtube_link: getYouTubeSearchLink(String(r.title ?? "")),
           }));
         }
       }
@@ -282,11 +281,11 @@ export async function GET(
           .limit(6);
 
         if (randomData) {
-          related = (randomData as any[]).map((r) => ({
+          related = (randomData as DatabaseRecipe[]).map((r) => ({
             id: `db-${r.id}`,
-            title: r.title,
-            image: r.image_url || "",
-            youtube_link: getYouTubeSearchLink(r.title),
+            title: String(r.title ?? ""),
+            image: String(r.image_url ?? ""),
+            youtube_link: getYouTubeSearchLink(String(r.title ?? "")),
           }));
         }
       }
