@@ -258,11 +258,7 @@ export default function RecipeList({
       {/* Recipe grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {recipes.map((recipe) => (
-          <Link
-            key={recipe.id}
-            href={`/recipes/${recipe.id}`}
-            className="group"
-          >
+          <Link key={recipe.id} href={`/recipe/${recipe.id}`} className="group">
             <div className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden h-full flex flex-col border border-gray-100">
               {/* Image */}
               <div className="relative h-48 overflow-hidden bg-gray-100">

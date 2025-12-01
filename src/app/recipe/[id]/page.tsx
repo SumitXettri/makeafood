@@ -27,7 +27,8 @@ interface Recipe {
   image: string;
   category: string;
   area: string;
-  instructions: string;
+  // instructions may be stored as string or array in DB
+  instructions: string | string[];
   source: string;
   description: string;
   prep_time_minutes?: number;
@@ -89,6 +90,7 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
                   src={recipe.image}
                   alt={recipe.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                  unoptimized
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                 {totalTime > 0 && (
@@ -340,9 +342,22 @@ export default function RecipeDetails() {
     );
   }
 
-  const instructions = recipe.instructions
-    .split("\n")
-    .filter((step) => step.trim());
+  // normalize instructions (support string or array)
+  const rawInstructions = recipe.instructions ?? "";
+  const instructions = Array.isArray(rawInstructions)
+    ? // array: ensure each item is a trimmed string, if any item contains newlines split further
+      rawInstructions
+        .flatMap((it) =>
+          String(it)
+            .split("\n")
+            .map((s) => s.trim())
+        )
+        .filter(Boolean)
+    : // string: split on newlines and filter empty lines
+      String(rawInstructions)
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean);
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 py-8 px-4 sm:px-6">
@@ -366,6 +381,7 @@ export default function RecipeDetails() {
               src={recipe.image}
               alt={recipe.title}
               className="w-full h-full object-cover"
+              unoptimized
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
 
