@@ -66,10 +66,6 @@ interface SpoonacularRecipe {
   difficulty?: string;
 }
 
-interface SpoonacularResponse {
-  results?: SpoonacularRecipe[];
-}
-
 interface DatabaseRecipe {
   id: number;
   title: string;
@@ -143,8 +139,9 @@ export async function GET(
       // Extract ingredients
       const ingredients: string[] = [];
       for (let i = 1; i <= 20; i++) {
-        const ingredient = (meal as any)[`strIngredient${i}`];
-        const measure = (meal as any)[`strMeasure${i}`];
+        const ingredient = (meal as MealDBRecipe)[`strIngredient${i}`];
+        const measure = (meal as MealDBRecipe)[`strMeasure${i}`];
+
         if (ingredient && ingredient.trim()) {
           ingredients.push(
             `${measure?.trim() || ""} ${ingredient.trim()}`.trim()
