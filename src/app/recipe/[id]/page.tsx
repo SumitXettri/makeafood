@@ -91,6 +91,7 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
                   alt={recipe.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   unoptimized
+                  priority
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                 {totalTime > 0 && (
@@ -382,6 +383,7 @@ export default function RecipeDetails() {
               alt={recipe.title}
               className="w-full h-full object-cover"
               unoptimized
+              priority
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
 

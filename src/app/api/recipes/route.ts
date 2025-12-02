@@ -1,14 +1,15 @@
+// app/api/recipes/route.ts
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import nepaliRecipes from "@/data/nepali-recipes.json"; // 🆕 Import Nepali recipes
 
-// Initialize Supabase client
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
 
-// Interfaces for API data
+// Interfaces...
 interface SpoonacularIngredient {
   amount: number;
   unit: string;
@@ -34,10 +35,14 @@ interface MealDBRecipe {
   strMealThumb: string;
   strInstructions?: string;
   strYoutube?: string;
-  [key: string]: string | undefined;
+  strCategory?: string;
+  strArea?: string;
+  strTags?: string;
+  // Dynamic keys
+  [key: `strIngredient${number}`]: string | undefined;
+  [key: `strMeasure${number}`]: string | undefined;
 }
 
-// Database recipe interface matching your schema
 interface DatabaseRecipe {
   id: number;
   user_id: string;
@@ -52,8 +57,8 @@ interface DatabaseRecipe {
   updated_at: string;
   image_url: string | null;
   video_url: string | null;
-  ingredients: unknown; // tightened from `any`
-  instructions: unknown; // tightened from `any`
+  ingredients: unknown;
+  instructions: unknown;
   cuisine: string | null;
   tags: string[] | null;
   likes: number;
@@ -73,38 +78,31 @@ interface UnifiedRecipe {
   servings: number;
   difficulty_level: string;
   youtube_link: string;
-  // Additional fields for database recipes
   likes?: number;
   views?: number;
   rating?: number;
   tags?: string[];
 }
 
-// In-memory cache
 const cache: Record<string, { data: UnifiedRecipe[]; expires: number }> = {};
 const MEALDB_RANDOM = "https://www.themealdb.com/api/json/v1/1/random.php";
 
-// Helper: generate YouTube search link
 function getYouTubeSearchLink(recipeTitle: string): string {
   const searchQuery = encodeURIComponent(`${recipeTitle} recipe`);
   return `https://www.youtube.com/results?search_query=${searchQuery}`;
 }
 
-// Helper: parse ingredients from JSONB
 function parseIngredients(ingredients: unknown): string[] {
   if (!ingredients) return [];
 
-  // If it's already an array
   if (Array.isArray(ingredients)) {
     if (ingredients.length === 0) return [];
     const first = ingredients[0];
 
-    // Array of strings
     if (typeof first === "string") {
       return ingredients as string[];
     }
 
-    // Array of objects like [{name: "flour", amount: "2 cups"}]
     return (ingredients as unknown[]).map((ing) => {
       if (ing && typeof ing === "object" && !Array.isArray(ing)) {
         const obj = ing as Record<string, unknown>;
@@ -117,7 +115,6 @@ function parseIngredients(ingredients: unknown): string[] {
     });
   }
 
-  // If it's an object (e.g., { "0": "salt", "1": "pepper" })
   if (typeof ingredients === "object" && !Array.isArray(ingredients)) {
     const obj = ingredients as Record<string, unknown>;
     return Object.values(obj)
@@ -125,11 +122,75 @@ function parseIngredients(ingredients: unknown): string[] {
       .map((v) => String(v));
   }
 
-  // Fallback
   return [];
 }
 
-// 🗄️ Fetch recipes from Supabase
+// 🇳🇵 NEW: Fetch Nepali recipes from JSON
+async function fetchNepaliRecipes(
+  query?: string,
+  category?: string | null
+): Promise<UnifiedRecipe[]> {
+  try {
+    let filtered = nepaliRecipes.meals;
+
+    // Filter by query
+    if (query) {
+      const q = query.toLowerCase();
+      filtered = filtered.filter(
+        (meal) =>
+          meal.strMeal.toLowerCase().includes(q) ||
+          meal.strTags?.toLowerCase().includes(q) ||
+          meal.strCategory?.toLowerCase().includes(q)
+      );
+    }
+
+    // Filter by category
+    if (category) {
+      filtered = filtered.filter(
+        (meal) => meal.strCategory?.toLowerCase() === category.toLowerCase()
+      );
+    }
+
+    // Transform to UnifiedRecipe format
+    return filtered.map((meal) => {
+      // Extract ingredients
+      const ingredients: string[] = [];
+      for (let i = 1; i <= 20; i++) {
+        const ingredient = (meal as any)[`strIngredient${i}`];
+        const measure = (meal as any)[`strMeasure${i}`];
+        if (ingredient && ingredient.trim()) {
+          ingredients.push(
+            `${measure?.trim() || ""} ${ingredient.trim()}`.trim()
+          );
+        }
+      }
+
+      return {
+        id: meal.idMeal,
+        title: meal.strMeal,
+        image:
+          meal.strMealThumb ||
+          "https://via.placeholder.com/400x300?text=Nepali+Recipe",
+        source: "Nepali Collection", // 🇳🇵
+        description:
+          meal.strInstructions?.slice(0, 150) + "…" ||
+          "Authentic Nepali recipe.",
+        ingredients,
+        prep_time_minutes: 0,
+        cook_time_minutes: 0,
+        servings: 4,
+        difficulty_level: "Medium",
+        youtube_link: meal.strYoutube || getYouTubeSearchLink(meal.strMeal),
+        tags: meal.strTags?.split(",").map((t) => t.trim()) || ["Nepali"],
+      };
+    });
+  } catch (error) {
+    console.error("Nepali recipes error:", error);
+    return [];
+  }
+}
+
+// Database recipes
 async function fetchDatabaseRecipes(
   query?: string,
   genre?: string | null,
@@ -142,9 +203,8 @@ async function fetchDatabaseRecipes(
     let supabaseQuery = supabase
       .from("recipes")
       .select("*")
-      .eq("is_public", true); // Only show public recipes
+      .eq("is_public", true);
 
-    // Apply filters
     if (query) {
       supabaseQuery = supabaseQuery.or(
         `title.ilike.%${query}%,description.ilike.%${query}%,tags.cs.{${query}}`
@@ -173,7 +233,6 @@ async function fetchDatabaseRecipes(
       supabaseQuery = supabaseQuery.contains("tags", [diet.toLowerCase()]);
     }
 
-    // Order by popularity (likes + rating combo) and recency
     const { data, error } = await supabaseQuery
       .order("likes", { ascending: false })
       .order("rating", { ascending: false })
@@ -185,13 +244,12 @@ async function fetchDatabaseRecipes(
       return [];
     }
 
-    // Transform to UnifiedRecipe format
     return (data || []).map((recipe: DatabaseRecipe) => ({
       id: `db-${recipe.id}`,
       title: recipe.title,
       image:
         recipe.image_url || "https://via.placeholder.com/400x300?text=No+Image",
-      source: "Community", // Changed from "Database" to be more user-friendly
+      source: "Community",
       description: recipe.description || "No description available.",
       ingredients: parseIngredients(recipe.ingredients),
       prep_time_minutes: recipe.prep_time_minutes || 0,
@@ -199,7 +257,6 @@ async function fetchDatabaseRecipes(
       servings: recipe.servings || 0,
       difficulty_level: recipe.difficulty_level || "Medium",
       youtube_link: recipe.video_url || getYouTubeSearchLink(recipe.title),
-      // Extra metadata
       likes: recipe.likes,
       views: recipe.views,
       rating: recipe.rating,
@@ -211,7 +268,6 @@ async function fetchDatabaseRecipes(
   }
 }
 
-// 🧠 Enhanced Weighted Scoring Algorithm
 function calculateScore(
   r: UnifiedRecipe,
   q: string,
@@ -220,23 +276,26 @@ function calculateScore(
 ): number {
   let score = 0;
 
-  // Source boost - Community recipes get priority
-  if (r.source === "Community") {
-    score += 1; // Base boost for community recipes
+  // 🇳🇵 Boost Nepali recipes when relevant
+  if (r.source === "Nepali Collection") {
+    score += 2; // Give Nepali recipes a boost
 
-    // Additional boosts based on engagement
+    // Extra boost if searching for nepali-related terms
+    if (q && (q.includes("nepal") || q.includes("momo") || q.includes("dal"))) {
+      score += 3;
+    }
+  }
+
+  if (r.source === "Community") {
+    score += 1;
     if (r.likes && r.likes > 10) score += 1;
     if (r.rating && r.rating >= 4.0) score += 1;
     if (r.views && r.views > 100) score += 0.5;
   }
 
-  // Title match (highest priority)
   if (q && r.title.toLowerCase().includes(q)) score += 4;
-
-  // Description match
   if (q && r.description.toLowerCase().includes(q)) score += 2;
 
-  // Tags match (for database recipes)
   if (q && r.tags) {
     const matchingTags = r.tags.filter((tag) =>
       tag.toLowerCase().includes(q.toLowerCase())
@@ -244,18 +303,15 @@ function calculateScore(
     score += matchingTags.length * 1.5;
   }
 
-  // Genre/cuisine match
   if (genre && r.title.toLowerCase().includes(genre.toLowerCase())) score += 3;
   if (genre && r.description.toLowerCase().includes(genre.toLowerCase()))
     score += 1;
 
-  // Difficulty match
   if (difficulty) {
     const d = r.difficulty_level.toLowerCase();
     if (d === difficulty.toLowerCase()) score += 2;
   }
 
-  // General quality indicators
   if (r.servings > 3) score += 1;
   if (r.prep_time_minutes + r.cook_time_minutes < 30) score += 0.5;
 
@@ -278,7 +334,7 @@ function rankRecipes(
   return scored
     .filter((r) => r.score > 0)
     .sort((a, b) => b.score - a.score)
-    .map(({ score: _score, ...rest }) => rest); // renamed destructured score to _score to avoid unused-var
+    .map(({ score: _score, ...rest }) => rest);
 }
 
 export async function GET(req: NextRequest) {
@@ -292,8 +348,6 @@ export async function GET(req: NextRequest) {
     const country = params.get("country");
     const mealType = params.get("mealType");
     const diet = params.get("diet");
-
-    // use page & limit (fixes unused variable warnings)
     const page = Math.max(1, Number(params.get("page") ?? 1));
     const limit = Math.max(1, Number(params.get("limit") ?? 12));
 
@@ -307,28 +361,34 @@ export async function GET(req: NextRequest) {
       `:p=${page}:l=${limit}`;
     const now = Date.now();
 
-    // Return cached data if valid
     if (cache[cacheKey] && cache[cacheKey].expires > now) {
       return NextResponse.json(cache[cacheKey].data);
     }
 
-    // 🚀 Fetch from all sources concurrently
-    const [spoonResults, mealResults, dbResults] = await Promise.all([
-      fetchSpoonacularRecipes(query, genre, apiKey),
-      fetchMealDBRecipes(query),
-      fetchDatabaseRecipes(query, genre, difficulty, country, mealType, diet),
-    ]);
+    // 🚀 Fetch from ALL sources including Nepali!
+    const [spoonResults, mealResults, dbResults, nepaliResults] =
+      await Promise.all([
+        fetchSpoonacularRecipes(query, genre, apiKey),
+        fetchMealDBRecipes(query),
+        fetchDatabaseRecipes(query, genre, difficulty, country, mealType, diet),
+        fetchNepaliRecipes(query, genre), // 🇳🇵 NEW!
+      ]);
 
     // Combine all results
-    const allRecipes = [...dbResults, ...spoonResults, ...mealResults];
+    const allRecipes = [
+      ...nepaliResults, // 🇳🇵 Put Nepali first for priority
+      ...dbResults,
+      ...spoonResults,
+      ...mealResults,
+    ];
 
-    // 🔍 Apply ranking algorithm
+    // Apply ranking
     const rankedResults =
       query || genre || difficulty
         ? rankRecipes(allRecipes, query, genre, difficulty)
         : allRecipes.sort(() => Math.random() - 0.5);
 
-    // Limit & cache (use page/limit)
+    // Pagination
     const start = (page - 1) * limit;
     const finalResults = rankedResults.slice(start, start + limit);
     cache[cacheKey] = { data: finalResults, expires: now + 3 * 60 * 1000 };
@@ -341,7 +401,7 @@ export async function GET(req: NextRequest) {
   }
 }
 
-// 🍴 Fetch Spoonacular recipes
+// Spoonacular
 async function fetchSpoonacularRecipes(
   query: string,
   genre: string | null,
@@ -364,7 +424,6 @@ async function fetchSpoonacularRecipes(
         : `https://api.spoonacular.com/recipes/random?number=4&apiKey=${apiKey}`;
 
     const spoonRes = await fetch(spoonUrl);
-
     if (!spoonRes.ok) return [];
 
     const spoonData = (await spoonRes.json()) as {
@@ -397,7 +456,7 @@ async function fetchSpoonacularRecipes(
   }
 }
 
-// 🍽️ Fetch MealDB recipes
+// MealDB
 async function fetchMealDBRecipes(query: string): Promise<UnifiedRecipe[]> {
   try {
     let mealData: { meals?: MealDBRecipe[] } = {};
