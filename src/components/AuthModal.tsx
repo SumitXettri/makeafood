@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
-import { X } from "lucide-react";
+import { X, CheckCircle } from "lucide-react";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -22,6 +22,7 @@ export default function AuthModal({
   const [username, setUsername] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
   useEffect(() => {
     setMode(initialMode);
@@ -30,12 +31,15 @@ export default function AuthModal({
   // Reset form when modal closes
   useEffect(() => {
     if (!isOpen) {
-      setEmail("");
-      setPassword("");
-      setConfirmPassword("");
-      setUsername("");
-      setError(null);
-      setLoading(false);
+      setTimeout(() => {
+        setEmail("");
+        setPassword("");
+        setConfirmPassword("");
+        setUsername("");
+        setError(null);
+        setSuccessMessage(null);
+        setLoading(false);
+      }, 300);
     }
   }, [isOpen]);
 
@@ -91,7 +95,7 @@ export default function AuthModal({
 
     setLoading(false);
     onClose();
-    window.location.reload(); // Refresh to update auth state
+    window.location.reload();
   };
 
   const handleSignup = async (e: React.FormEvent) => {
@@ -149,7 +153,11 @@ export default function AuthModal({
     setError(null);
     setPassword("");
     setConfirmPassword("");
-    alert("Account created! Please log in.");
+    setSuccessMessage("Account created successfully! Please log in.");
+
+    setTimeout(() => {
+      setSuccessMessage(null);
+    }, 5000);
   };
 
   const handleBackdropClick = (e: React.MouseEvent) => {
@@ -158,16 +166,22 @@ export default function AuthModal({
     }
   };
 
+  const switchMode = () => {
+    setMode(mode === "login" ? "signup" : "login");
+    setError(null);
+    setSuccessMessage(null);
+  };
+
   return (
     <div
-      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+      className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-in fade-in duration-200"
       onClick={handleBackdropClick}
     >
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative animate-in fade-in zoom-in duration-200">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-8 relative animate-in zoom-in duration-200">
         {/* Close button */}
         <button
           onClick={onClose}
-          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+          className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
           aria-label="Close"
         >
           <X size={24} />
@@ -176,6 +190,18 @@ export default function AuthModal({
         <h1 className="text-2xl font-bold text-gray-800 mb-6 text-center">
           {mode === "login" ? "Welcome Back" : "Create Your Account"}
         </h1>
+
+        {/* Success Message */}
+        {successMessage && (
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-lg animate-in slide-in-from-top duration-300">
+            <div className="flex items-center gap-2">
+              <CheckCircle className="text-green-600 flex-shrink-0" size={18} />
+              <p className="text-green-700 text-sm font-medium">
+                {successMessage}
+              </p>
+            </div>
+          </div>
+        )}
 
         {mode === "login" ? (
           <form onSubmit={handleLogin} className="space-y-4">
@@ -188,7 +214,7 @@ export default function AuthModal({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-400 outline-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none transition-all"
                 placeholder="you@example.com"
               />
             </div>
@@ -202,19 +228,30 @@ export default function AuthModal({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-400 outline-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none transition-all"
                 placeholder="••••••••"
               />
             </div>
 
-            {error && <p className="text-red-600 text-sm">{error}</p>}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg animate-in slide-in-from-top duration-300">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-600 text-white py-2 rounded-lg hover:bg-orange-700 transition disabled:opacity-60"
+              className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              {loading ? "Logging in..." : "Log In"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Logging in...
+                </span>
+              ) : (
+                "Log In"
+              )}
             </button>
           </form>
         ) : (
@@ -228,7 +265,7 @@ export default function AuthModal({
                 value={username}
                 onChange={(e) => setUsername(e.target.value)}
                 required
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-400 outline-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none transition-all"
                 placeholder="choose a username"
               />
             </div>
@@ -242,7 +279,7 @@ export default function AuthModal({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-400 outline-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none transition-all"
                 placeholder="you@example.com"
               />
             </div>
@@ -256,7 +293,7 @@ export default function AuthModal({
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-400 outline-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none transition-all"
                 placeholder="••••••••"
               />
             </div>
@@ -270,30 +307,41 @@ export default function AuthModal({
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-orange-400 outline-none"
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-400 focus:border-orange-400 outline-none transition-all"
                 placeholder="••••••••"
               />
             </div>
 
-            {error && <p className="text-red-600 text-sm">{error}</p>}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-200 rounded-lg animate-in slide-in-from-top duration-300">
+                <p className="text-red-600 text-sm">{error}</p>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading}
-              className="w-full bg-orange-600 text-white py-2 rounded-lg hover:bg-orange-700 transition disabled:opacity-60"
+              className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white py-2.5 rounded-lg font-semibold hover:shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all disabled:opacity-60 disabled:cursor-not-allowed disabled:hover:scale-100"
             >
-              {loading ? "Signing up..." : "Sign Up"}
+              {loading ? (
+                <span className="flex items-center justify-center gap-2">
+                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  Signing up...
+                </span>
+              ) : (
+                "Sign Up"
+              )}
             </button>
           </form>
         )}
 
-        <p className="text-center text-sm text-gray-600 mt-4">
+        <p className="text-center text-sm text-gray-600 mt-6">
           {mode === "login" ? (
             <>
-              Don't have an account?{" "}
+              Don&apos;t have an account?{" "}
               <button
-                onClick={() => setMode("signup")}
-                className="text-orange-600 hover:underline font-medium"
+                onClick={switchMode}
+                className="text-orange-600 hover:text-orange-700 font-semibold hover:underline transition-colors"
               >
                 Sign up
               </button>
@@ -302,8 +350,8 @@ export default function AuthModal({
             <>
               Already have an account?{" "}
               <button
-                onClick={() => setMode("login")}
-                className="text-orange-600 hover:underline font-medium"
+                onClick={switchMode}
+                className="text-orange-600 hover:text-orange-700 font-semibold hover:underline transition-colors"
               >
                 Log in
               </button>

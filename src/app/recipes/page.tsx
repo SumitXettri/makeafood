@@ -21,6 +21,7 @@ function RecipesContent() {
 
   // Options
   const cuisines = [
+    "Nepali",
     "Italian",
     "Chinese",
     "Mexican",
@@ -34,6 +35,7 @@ function RecipesContent() {
   ];
   const difficulties = ["Easy", "Medium", "Hard"];
   const countries = [
+    "Nepal",
     "Italy",
     "China",
     "Mexico",
