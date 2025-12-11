@@ -21,6 +21,7 @@ export default function HomePage() {
   const router = useRouter();
   const [searchQuery, setSearchQuery] = useState("");
 
+  console.log(hoveredCard);
   const todaySpecials = [
     {
       id: 1,
@@ -221,10 +222,19 @@ export default function HomePage() {
     "Stir Fry",
   ];
 
-  const handleSearch = (query: string) => {
-    if (!query.trim()) return;
-    console.log("Searching for:", hoveredCard);
-    router.push(`/recipes?query=${encodeURIComponent(query)}`);
+  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    // The element that triggered the form submission (could be the search button,
+    // a trending button, or pressing Enter inside the input)
+    const submitter = (e.nativeEvent as SubmitEvent)
+      .submitter as HTMLElement | null;
+    const term = submitter?.getAttribute("data-term") ?? null;
+
+    const q = term ?? searchQuery.trim();
+    if (!q) return;
+
+    router.push(`/recipes?query=${encodeURIComponent(q)}`);
+    setSearchQuery("");
   };
 
   return (
@@ -256,7 +266,7 @@ export default function HomePage() {
 
         {/* Search Bar */}
         <div className="max-w-3xl mx-auto mb-16">
-          <div className="relative">
+          <form onSubmit={handleSearch} className="relative">
             <input
               type="text"
               placeholder="Search by ingredients, cuisine, or dish name..."
@@ -264,22 +274,28 @@ export default function HomePage() {
               onChange={(e) => setSearchQuery(e.target.value)}
               className="w-full px-6 py-5 rounded-2xl border-2 border-orange-200 focus:border-orange-400 focus:outline-none text-lg shadow-lg"
             />
-            <button className="absolute right-3 top-1/2 -translate-y-1/2 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all">
-              <Search onClick={() => handleSearch(searchQuery)} size={20} />
+            <button
+              type="submit"
+              aria-label="Search"
+              className="absolute right-3 top-1/2 -translate-y-1/2 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+            >
+              <Search size={20} />
             </button>
-          </div>
-          <div className="flex flex-wrap justify-center gap-2 mt-4">
-            <span className="text-sm text-gray-500">Trending:</span>
-            {trendingSearches.map((term) => (
-              <button
-                key={term}
-                onClick={() => handleSearch(term)}
-                className="text-sm px-3 py-1 bg-white rounded-full border border-orange-200 text-orange-700 hover:bg-orange-50 transition"
-              >
-                {term}
-              </button>
-            ))}
-          </div>
+
+            <div className="flex flex-wrap justify-center gap-2 mt-4">
+              <span className="text-sm text-gray-500">Trending:</span>
+              {trendingSearches.map((term) => (
+                <button
+                  key={term}
+                  type="submit"
+                  data-term={term}
+                  className="text-sm px-3 py-1 bg-white rounded-full border border-orange-200 text-orange-700 hover:bg-orange-50 transition"
+                >
+                  {term}
+                </button>
+              ))}
+            </div>
+          </form>
         </div>
 
         {/* Today's Special Section */}

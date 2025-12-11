@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState, useRef, useCallback } from "react";
 import DOMPurify from "dompurify";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -21,35 +21,52 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 
+// Updated interfaces to match Supabase schema
+interface Ingredient {
+  order: number;
+  item: string;
+}
+
+interface Instruction {
+  step: number;
+  description: string;
+}
+
 interface Recipe {
   id: string;
   title: string;
-  image: string;
-  category: string;
-  area: string;
-  // instructions may be stored as string or array in DB
-  instructions: string | string[];
-  source: string;
-  description: string;
+  image_url: string; // Changed from 'image'
+  category?: string;
+  area?: string;
+  cuisine?: string; // Added from schema
+  tags?: string[];
+  // instructions stored as JSONB array of objects
+  instructions: Instruction[] | string;
+  // ingredients stored as JSONB array of objects
+  ingredients: Ingredient[] | string;
+  source?: string;
+  description?: string;
   prep_time_minutes?: number;
   cook_time_minutes?: number;
   servings?: number;
   difficulty_level?: "Easy" | "Medium" | "Hard";
   rating?: number;
   views?: number;
-  ingredients?: string[];
-  tags?: string[];
+  likes?: number;
+  video_url?: string;
   youtube_link?: string;
+  is_approved?: boolean;
+  created_at?: string;
 }
 
 interface RelatedRecipe {
   id: string;
   title: string;
-  image: string;
+  image_url: string;
   difficulty_level?: string;
   prep_time_minutes?: number;
   cook_time_minutes?: number;
-  youtube_link?: string;
+  video_url?: string;
 }
 
 // Separate RelatedRecipes component
@@ -85,13 +102,12 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
             >
               <div className="relative h-48 overflow-hidden">
                 <Image
-                  width={120}
-                  height={120}
-                  src={recipe.image}
+                  width={400}
+                  height={300}
+                  src={recipe.image_url}
                   alt={recipe.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                   unoptimized
-                  priority
                 />
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                 {totalTime > 0 && (
@@ -102,9 +118,9 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
                     </span>
                   </div>
                 )}
-                {recipe.youtube_link && (
+                {recipe.video_url && (
                   <a
-                    href={recipe.youtube_link}
+                    href={recipe.video_url}
                     target="_blank"
                     rel="noopener noreferrer"
                     onClick={(e) => e.stopPropagation()}
@@ -115,15 +131,7 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
                 )}
               </div>
               <div
-                onClick={() => {
-                  const fixedId = recipe.id.startsWith("spoonacular-")
-                    ? `s-${recipe.id.replace("spoonacular-", "")}`
-                    : recipe.id.startsWith("mealdb-")
-                    ? `m-${recipe.id.replace("mealdb-", "")}`
-                    : recipe.id;
-
-                  router.push(`/recipe/${fixedId}`);
-                }}
+                onClick={() => router.push(`/recipe/${recipe.id}`)}
                 className="p-4 cursor-pointer"
               >
                 <h3 className="text-base font-bold text-gray-900 line-clamp-2 group-hover:text-orange-600 transition">
@@ -164,25 +172,15 @@ export default function RecipeDetails() {
     "instructions"
   );
   const [completedSteps, setCompletedSteps] = useState<Set<number>>(new Set());
-  const [currentSegmentIndex, setCurrentSegmentIndex] = useState<number | null>(
-    null
-  );
-  const [currentWordIndex, setCurrentWordIndex] = useState<number | null>(null);
   const [isSpeaking, setIsSpeaking] = useState(false);
-  const [isPaused, setIsPaused] = useState(false);
   const utteranceRef = useRef<SpeechSynthesisUtterance | null>(null);
 
   const stop = () => {
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
-    setIsPaused(false);
-    setCurrentSegmentIndex(null);
-    setCurrentWordIndex(null);
   };
 
-  console.log(isPaused, currentSegmentIndex, currentWordIndex);
-
-  const speak = () => {
+  const speak = (instructions: Instruction[]) => {
     if (!("speechSynthesis" in window)) {
       alert("Text-to-speech not supported. Try Chrome or Edge.");
       return;
@@ -190,13 +188,13 @@ export default function RecipeDetails() {
 
     window.speechSynthesis.cancel();
 
-    if (!recipe?.instructions) {
+    if (!instructions || instructions.length === 0) {
       alert("No instructions available to read.");
       return;
     }
 
     const textToRead = instructions
-      .map((step, index) => `Step ${index + 1}: ${step}`)
+      .map((inst) => `Step ${inst.step}: ${inst.description}`)
       .join(". ");
 
     const utterance = new SpeechSynthesisUtterance(textToRead);
@@ -204,26 +202,97 @@ export default function RecipeDetails() {
     utterance.rate = 1;
     utterance.pitch = 1;
 
-    utterance.onstart = () => {
-      setIsSpeaking(true);
-      setIsPaused(false);
-    };
-
-    utterance.onend = () => {
-      setIsSpeaking(false);
-      setIsPaused(false);
-      setCurrentSegmentIndex(null);
-      setCurrentWordIndex(null);
-    };
-
-    utterance.onerror = () => {
-      setIsSpeaking(false);
-      setIsPaused(false);
-    };
+    utterance.onstart = () => setIsSpeaking(true);
+    utterance.onend = () => setIsSpeaking(false);
+    utterance.onerror = () => setIsSpeaking(false);
 
     utteranceRef.current = utterance;
     window.speechSynthesis.speak(utterance);
   };
+
+  // Parse ingredients from JSONB
+  const parseIngredients = useCallback((data: unknown): Ingredient[] => {
+    if (!data) return [];
+
+    // If already an array of objects
+    if (Array.isArray(data)) {
+      // Check if it's already in the correct format
+      if (
+        data.length > 0 &&
+        typeof data[0] === "object" &&
+        "item" in (data[0] as object)
+      ) {
+        return data as Ingredient[];
+      }
+      // If it's an array of strings, convert to objects
+      return (data as unknown[]).map((item, idx) => ({
+        order: idx + 1,
+        item: String(item),
+      }));
+    }
+
+    // If it's a string, try to parse it
+    if (typeof data === "string") {
+      try {
+        const parsed = JSON.parse(data);
+        return parseIngredients(parsed); // Recursive call
+      } catch {
+        // If parsing fails, split by newlines
+        return data
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((item, idx) => ({
+            order: idx + 1,
+            item,
+          }));
+      }
+    }
+
+    return [];
+  }, []);
+
+  // Parse instructions from JSONB
+  const parseInstructions = useCallback((data: unknown): Instruction[] => {
+    if (!data) return [];
+
+    // If already an array of objects
+    if (Array.isArray(data)) {
+      // Check if it's already in the correct format
+      if (
+        data.length > 0 &&
+        typeof data[0] === "object" &&
+        "description" in (data[0] as object)
+      ) {
+        return data as Instruction[];
+      }
+      // If it's an array of strings, convert to objects
+      return (data as unknown[]).map((item, idx) => ({
+        step: idx + 1,
+        description: String(item),
+      }));
+    }
+
+    // If it's a string, try to parse it
+    if (typeof data === "string") {
+      try {
+        const parsed = JSON.parse(data);
+        return parseInstructions(parsed); // Recursive call
+      } catch {
+        // If parsing fails, split by newlines
+        return data
+          .split("\n")
+          .map((s) => s.trim())
+          .filter(Boolean)
+          .map((item, idx) => ({
+            step: idx + 1,
+            description: item,
+          }));
+      }
+    }
+
+    return [];
+  }, []);
 
   useEffect(() => {
     async function fetchRecipe() {
@@ -244,13 +313,20 @@ export default function RecipeDetails() {
 
         if (data.error) throw new Error(data.error);
 
-        setRecipe(data.recipe);
+        // Parse JSONB fields properly
+        const parsedRecipe = {
+          ...data.recipe,
+          ingredients: parseIngredients(data.recipe.ingredients),
+          instructions: parseInstructions(data.recipe.instructions),
+          tags: Array.isArray(data.recipe.tags) ? data.recipe.tags : [],
+        };
+
+        setRecipe(parsedRecipe);
 
         if (data.related) {
           console.log("Related recipes:", data.related);
           setRelated(Array.isArray(data.related) ? data.related : []);
         } else {
-          console.log("No related recipes in response");
           setRelated([]);
         }
       } catch (err) {
@@ -264,7 +340,7 @@ export default function RecipeDetails() {
     }
 
     fetchRecipe();
-  }, [params?.id]);
+  }, [params?.id, parseIngredients, parseInstructions]);
 
   const toggleStep = (index: number) => {
     setCompletedSteps((prev) => {
@@ -343,22 +419,13 @@ export default function RecipeDetails() {
     );
   }
 
-  // normalize instructions (support string or array)
-  const rawInstructions = recipe.instructions ?? "";
-  const instructions = Array.isArray(rawInstructions)
-    ? // array: ensure each item is a trimmed string, if any item contains newlines split further
-      rawInstructions
-        .flatMap((it) =>
-          String(it)
-            .split("\n")
-            .map((s) => s.trim())
-        )
-        .filter(Boolean)
-    : // string: split on newlines and filter empty lines
-      String(rawInstructions)
-        .split("\n")
-        .map((s) => s.trim())
-        .filter(Boolean);
+  // Parse ingredients and instructions
+  const ingredients = parseIngredients(recipe.ingredients);
+  const instructions = parseInstructions(recipe.instructions);
+
+  // Use video_url if available, otherwise youtube_link for backwards compatibility
+  const videoUrl = recipe.video_url || recipe.youtube_link;
+  const recipeImage = recipe.image_url || "/placeholder-recipe.jpg";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 py-8 px-4 sm:px-6">
@@ -377,9 +444,9 @@ export default function RecipeDetails() {
           {/* Hero Image */}
           <div className="relative h-[400px] sm:h-[500px] overflow-hidden">
             <Image
-              width={120}
-              height={120}
-              src={recipe.image}
+              width={1200}
+              height={600}
+              src={recipeImage}
               alt={recipe.title}
               className="w-full h-full object-cover"
               unoptimized
@@ -388,9 +455,9 @@ export default function RecipeDetails() {
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
 
             {/* YouTube button on hero image - bottom right */}
-            {recipe.youtube_link && (
+            {videoUrl && (
               <a
-                href={recipe.youtube_link}
+                href={videoUrl}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="absolute z-10 cursor-pointer bottom-6 right-6 px-6 py-3 bg-red-600 hover:bg-red-700 rounded-xl flex items-center gap-2 transition-all shadow-2xl hover:shadow-red-500/50 hover:scale-105 group"
@@ -438,12 +505,21 @@ export default function RecipeDetails() {
             {/* Title overlay */}
             <div className="absolute bottom-0 left-0 right-0 p-8">
               <div className="flex flex-wrap gap-2 mb-4">
-                <span className="px-4 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-sm font-semibold text-gray-800">
-                  {recipe.category}
-                </span>
-                <span className="px-4 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-sm font-semibold text-gray-800">
-                  {recipe.area}
-                </span>
+                {recipe.cuisine && (
+                  <span className="px-4 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-sm font-semibold text-gray-800">
+                    {recipe.cuisine}
+                  </span>
+                )}
+                {recipe.category && (
+                  <span className="px-4 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-sm font-semibold text-gray-800">
+                    {recipe.category}
+                  </span>
+                )}
+                {recipe.area && (
+                  <span className="px-4 py-1.5 bg-white/90 backdrop-blur-sm rounded-full text-sm font-semibold text-gray-800">
+                    {recipe.area}
+                  </span>
+                )}
                 {recipe.difficulty_level && (
                   <span
                     className={`px-4 py-1.5 rounded-full text-sm font-semibold ${getDifficultyColor(
@@ -468,50 +544,80 @@ export default function RecipeDetails() {
           {/* Stats Bar */}
           <div className="bg-gradient-to-r from-orange-500 to-red-500 px-8 py-6">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-6 text-white">
-              {recipe.prep_time_minutes && (
-                <div className="text-center">
-                  <Clock className="mx-auto mb-2" size={24} />
-                  <div className="text-2xl font-bold">
-                    {recipe.prep_time_minutes}
+              {recipe.prep_time_minutes !== undefined &&
+                recipe.prep_time_minutes > 0 && (
+                  <div className="text-center">
+                    <Clock className="mx-auto mb-2" size={24} />
+                    <div className="text-2xl font-bold">
+                      {recipe.prep_time_minutes}m
+                    </div>
+                    <div className="text-sm opacity-90">Prep Time</div>
                   </div>
-                  <div className="text-sm opacity-90">Prep Time</div>
-                </div>
-              )}
-              {recipe.cook_time_minutes && (
-                <div className="text-center">
-                  <ChefHat className="mx-auto mb-2" size={24} />
-                  <div className="text-2xl font-bold">
-                    {recipe.cook_time_minutes}
+                )}
+              {recipe.cook_time_minutes !== undefined &&
+                recipe.cook_time_minutes > 0 && (
+                  <div className="text-center">
+                    <ChefHat className="mx-auto mb-2" size={24} />
+                    <div className="text-2xl font-bold">
+                      {recipe.cook_time_minutes}m
+                    </div>
+                    <div className="text-sm opacity-90">Cook Time</div>
                   </div>
-                  <div className="text-sm opacity-90">Cook Time</div>
-                </div>
-              )}
+                )}
               {recipe.servings && (
-                <div className="text-center ">
-                  <div className="flex space-x-2">
-                    <Users className="mx-auto mb-2" size={24} />
-                    <p className="text-2xl font-bold">
-                      {recipe.servings} servings
-                    </p>
-                  </div>
+                <div className="text-center">
+                  <Users className="mx-auto mb-2" size={24} />
+                  <div className="text-2xl font-bold">{recipe.servings}</div>
+                  <div className="text-sm opacity-90">Servings</div>
                 </div>
               )}
-              {recipe.rating && (
+              {recipe.rating !== undefined && recipe.rating > 0 && (
                 <div className="text-center">
                   <Star className="mx-auto mb-2 fill-white" size={24} />
-                  <div className="text-2xl font-bold">{recipe.rating}</div>
+                  <div className="text-2xl font-bold">
+                    {recipe.rating.toFixed(1)}
+                  </div>
                   <div className="text-sm opacity-90">Rating</div>
+                </div>
+              )}
+              {recipe.likes !== undefined && (
+                <div className="text-center">
+                  <Heart className="mx-auto mb-2 fill-white" size={24} />
+                  <div className="text-2xl font-bold">{recipe.likes}</div>
+                  <div className="text-sm opacity-90">Likes</div>
+                </div>
+              )}
+              {recipe.views !== undefined && (
+                <div className="text-center">
+                  <div className="text-2xl font-bold">{recipe.views}</div>
+                  <div className="text-sm opacity-90">Views</div>
                 </div>
               )}
             </div>
           </div>
 
+          {/* Tags */}
+          {recipe.tags && recipe.tags.length > 0 && (
+            <div className="px-8 py-4 bg-gray-50 border-b border-gray-200">
+              <div className="flex flex-wrap gap-2">
+                {recipe.tags.map((tag, idx) => (
+                  <span
+                    key={idx}
+                    className="px-3 py-1 bg-orange-100 text-orange-700 rounded-full text-sm font-medium"
+                  >
+                    #{tag}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="px-8 py-6 bg-gray-50 border-b border-gray-200">
             <div className="flex flex-wrap gap-3">
-              {recipe.youtube_link && (
+              {videoUrl && (
                 <a
-                  href={recipe.youtube_link}
+                  href={videoUrl}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="flex items-center gap-2 px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl transition font-medium shadow-md hover:shadow-lg"
@@ -525,7 +631,7 @@ export default function RecipeDetails() {
                 Print Recipe
               </button>
               <button
-                onClick={() => (isSpeaking ? stop() : speak())}
+                onClick={() => (isSpeaking ? stop() : speak(instructions))}
                 className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition font-medium"
               >
                 <Volume2 size={18} />
@@ -533,7 +639,7 @@ export default function RecipeDetails() {
               </button>
               <button className="flex items-center gap-2 px-5 py-2.5 bg-white border border-gray-300 rounded-xl hover:bg-gray-100 transition font-medium">
                 <MessageCircle size={18} />
-                Comments (12)
+                Comments
               </button>
             </div>
           </div>
@@ -549,7 +655,7 @@ export default function RecipeDetails() {
                     : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                Instructions
+                Instructions ({instructions.length})
               </button>
               <button
                 onClick={() => setActiveTab("ingredients")}
@@ -559,7 +665,7 @@ export default function RecipeDetails() {
                     : "text-gray-500 hover:text-gray-700"
                 }`}
               >
-                Ingredients
+                Ingredients ({ingredients.length})
               </button>
             </div>
           </div>
@@ -577,58 +683,72 @@ export default function RecipeDetails() {
                   </span>
                 </div>
 
-                {instructions.map((step, index) => (
-                  <div
-                    key={index}
-                    className={`flex gap-4 p-5 rounded-2xl border-2 transition-all ${
-                      completedSteps.has(index)
-                        ? "bg-green-50 border-green-200"
-                        : "bg-white border-gray-200 hover:border-orange-300"
-                    }`}
-                  >
-                    <button
-                      onClick={() => toggleStep(index)}
-                      className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center transition-all ${
-                        completedSteps.has(index)
-                          ? "bg-green-500 text-white"
-                          : "bg-orange-100 text-orange-600 hover:bg-orange-200"
-                      }`}
-                    >
-                      {completedSteps.has(index) ? (
-                        <CheckCircle2 size={20} />
-                      ) : (
-                        <span className="font-bold">{index + 1}</span>
-                      )}
-                    </button>
-                    <div
-                      className={`flex-1 leading-relaxed ${
-                        completedSteps.has(index)
-                          ? "text-gray-600 line-through"
-                          : "text-gray-800"
-                      }`}
-                      dangerouslySetInnerHTML={{
-                        __html: DOMPurify.sanitize(step),
-                      }}
-                    />
-                  </div>
-                ))}
+                {instructions.length > 0 ? (
+                  instructions
+                    .sort((a, b) => a.step - b.step)
+                    .map((instruction, index) => (
+                      <div
+                        key={index}
+                        className={`flex gap-4 p-5 rounded-2xl border-2 transition-all ${
+                          completedSteps.has(index)
+                            ? "bg-green-50 border-green-200"
+                            : "bg-white border-gray-200 hover:border-orange-300"
+                        }`}
+                      >
+                        <button
+                          onClick={() => toggleStep(index)}
+                          className={`flex-shrink-0 w-10 h-10 rounded-full flex items-center justify-center transition-all font-bold ${
+                            completedSteps.has(index)
+                              ? "bg-green-500 text-white"
+                              : "bg-orange-100 text-orange-600 hover:bg-orange-200"
+                          }`}
+                        >
+                          {completedSteps.has(index) ? (
+                            <CheckCircle2 size={20} />
+                          ) : (
+                            instruction.step
+                          )}
+                        </button>
+                        <div
+                          className={`flex-1 leading-relaxed ${
+                            completedSteps.has(index)
+                              ? "text-gray-600 line-through"
+                              : "text-gray-800"
+                          }`}
+                          dangerouslySetInnerHTML={{
+                            __html: DOMPurify.sanitize(instruction.description),
+                          }}
+                        />
+                      </div>
+                    ))
+                ) : (
+                  <p className="text-gray-600 italic">
+                    No instructions available for this recipe.
+                  </p>
+                )}
               </div>
             ) : (
               <div>
                 <h2 className="text-2xl font-bold text-gray-900 mb-6">
                   Ingredients
                 </h2>
-                {recipe.ingredients && recipe.ingredients.length > 0 ? (
+                {ingredients.length > 0 ? (
                   <div className="grid sm:grid-cols-2 gap-3">
-                    {recipe.ingredients.map((ingredient, index) => (
-                      <div
-                        key={index}
-                        className="flex items-center gap-3 p-4 bg-orange-50 rounded-xl border border-orange-100"
-                      >
-                        <div className="w-2 h-2 rounded-full bg-orange-500"></div>
-                        <span className="text-gray-800">{ingredient}</span>
-                      </div>
-                    ))}
+                    {ingredients
+                      .sort((a, b) => a.order - b.order)
+                      .map((ingredient, index) => (
+                        <div
+                          key={index}
+                          className="flex items-start gap-3 p-4 bg-orange-50 rounded-xl border border-orange-100"
+                        >
+                          <div className="flex-shrink-0 w-6 h-6 bg-orange-500 text-white rounded-full flex items-center justify-center text-sm font-bold">
+                            {ingredient.order}
+                          </div>
+                          <span className="text-gray-800 flex-1">
+                            {ingredient.item}
+                          </span>
+                        </div>
+                      ))}
                   </div>
                 ) : (
                   <p className="text-gray-600 italic">
