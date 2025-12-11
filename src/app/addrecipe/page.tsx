@@ -191,18 +191,22 @@ export default function SubmitRecipePage() {
       .map((tag) => tag.trim())
       .filter((tag) => tag !== "");
 
-    // Prepare ingredients and instructions as JSONB
-    const ingredientsJson = validIngredients.map((ing, idx) => ({
-      order: idx + 1,
-      item: ing,
-    }));
+    // Prepare ingredients as simple JSONB array
+    const ingredientsJsonb = validIngredients.map((ing) => ing.trim());
 
-    const instructionsJson = validInstructions.map((inst, idx) => ({
-      step: idx + 1,
-      description: inst,
-    }));
+    // Prepare instructions as simple JSONB array
+    const instructionsJsonb = validInstructions.map((inst) => inst.trim());
 
-    // Insert recipe first (without image_url)
+    console.log(
+      "Ingredients JSONB:",
+      JSON.stringify(ingredientsJsonb, null, 2)
+    );
+    console.log(
+      "Instructions JSONB:",
+      JSON.stringify(instructionsJsonb, null, 2)
+    );
+
+    // Insert recipe with JSONB formatted data
     const { data: recipeData, error: insertError } = await supabase
       .from("recipes")
       .insert([
@@ -216,8 +220,8 @@ export default function SubmitRecipePage() {
           difficulty_level: difficulty,
           cuisine: cuisine.trim() || null,
           tags: tagsArray.length > 0 ? tagsArray : null,
-          ingredients: ingredientsJson,
-          instructions: instructionsJson,
+          ingredients: ingredientsJsonb, // JSONB format
+          instructions: instructionsJsonb, // JSONB format
           is_public: true,
           is_approved: false, // Requires approval
         },

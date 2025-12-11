@@ -19,7 +19,6 @@ import {
   Youtube,
 } from "lucide-react";
 import Link from "next/link";
-import Image from "next/image";
 
 // Updated interfaces to match Supabase schema
 interface Ingredient {
@@ -35,14 +34,12 @@ interface Instruction {
 interface Recipe {
   id: string;
   title: string;
-  image_url: string; // Changed from 'image'
+  image: string;
   category?: string;
   area?: string;
-  cuisine?: string; // Added from schema
+  cuisine?: string;
   tags?: string[];
-  // instructions stored as JSONB array of objects
   instructions: Instruction[] | string;
-  // ingredients stored as JSONB array of objects
   ingredients: Ingredient[] | string;
   source?: string;
   description?: string;
@@ -62,7 +59,7 @@ interface Recipe {
 interface RelatedRecipe {
   id: string;
   title: string;
-  image_url: string;
+  image: string;
   difficulty_level?: string;
   prep_time_minutes?: number;
   cook_time_minutes?: number;
@@ -101,14 +98,12 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
               className="group bg-white rounded-2xl shadow-lg overflow-hidden hover:shadow-2xl hover:-translate-y-1 transition-all duration-300"
             >
               <div className="relative h-48 overflow-hidden">
-                <Image
-                  width={400}
-                  height={300}
-                  src={recipe.image_url}
+                <img
+                  src={recipe.image}
                   alt={recipe.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                  unoptimized
                 />
+                console.log(recipe.image_url)
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                 {totalTime > 0 && (
                   <div className="absolute bottom-3 left-3">
@@ -210,13 +205,13 @@ export default function RecipeDetails() {
     window.speechSynthesis.speak(utterance);
   };
 
-  // Parse ingredients from JSONB
+  // Parse ingredients from JSONB - now handles simple array format
   const parseIngredients = useCallback((data: unknown): Ingredient[] => {
     if (!data) return [];
 
-    // If already an array of objects
+    // If already an array
     if (Array.isArray(data)) {
-      // Check if it's already in the correct format
+      // Check if it's array of objects with 'item' property
       if (
         data.length > 0 &&
         typeof data[0] === "object" &&
@@ -224,7 +219,7 @@ export default function RecipeDetails() {
       ) {
         return data as Ingredient[];
       }
-      // If it's an array of strings, convert to objects
+      // If it's an array of strings (simple format), convert to objects
       return (data as unknown[]).map((item, idx) => ({
         order: idx + 1,
         item: String(item),
@@ -252,13 +247,13 @@ export default function RecipeDetails() {
     return [];
   }, []);
 
-  // Parse instructions from JSONB
+  // Parse instructions from JSONB - now handles simple array format
   const parseInstructions = useCallback((data: unknown): Instruction[] => {
     if (!data) return [];
 
-    // If already an array of objects
+    // If already an array
     if (Array.isArray(data)) {
-      // Check if it's already in the correct format
+      // Check if it's array of objects with 'description' property
       if (
         data.length > 0 &&
         typeof data[0] === "object" &&
@@ -266,7 +261,7 @@ export default function RecipeDetails() {
       ) {
         return data as Instruction[];
       }
-      // If it's an array of strings, convert to objects
+      // If it's an array of strings (simple format), convert to objects
       return (data as unknown[]).map((item, idx) => ({
         step: idx + 1,
         description: String(item),
@@ -425,7 +420,7 @@ export default function RecipeDetails() {
 
   // Use video_url if available, otherwise youtube_link for backwards compatibility
   const videoUrl = recipe.video_url || recipe.youtube_link;
-  const recipeImage = recipe.image_url || "/placeholder-recipe.jpg";
+  const recipeImage = recipe.image || "/placeholder-recipe.jpg";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50 py-8 px-4 sm:px-6">
@@ -443,14 +438,10 @@ export default function RecipeDetails() {
         <div className="bg-white shadow-2xl rounded-3xl overflow-hidden">
           {/* Hero Image */}
           <div className="relative h-[400px] sm:h-[500px] overflow-hidden">
-            <Image
-              width={1200}
-              height={600}
+            <img
               src={recipeImage}
               alt={recipe.title}
               className="w-full h-full object-cover"
-              unoptimized
-              priority
             />
             <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/30 to-transparent"></div>
 

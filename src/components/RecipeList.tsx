@@ -1,7 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import Image from "next/image";
 
 interface Recipe {
   id: string;
@@ -262,10 +261,8 @@ export default function RecipeList({
             <div className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden h-full flex flex-col border border-gray-100">
               {/* Image */}
               <div className="relative h-48 overflow-hidden bg-gray-100">
-                <Image
-                  fill
+                <img
                   src={recipe.image}
-                  alt={recipe.title}
                   className="object-cover group-hover:scale-105 transition-transform duration-500"
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />
