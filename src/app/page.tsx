@@ -6,7 +6,6 @@ import {
   Flame,
   Clock,
   Star,
-  Heart,
   ChevronRight,
   Leaf,
   Pizza,

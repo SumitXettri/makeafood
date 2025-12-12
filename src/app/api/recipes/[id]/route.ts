@@ -458,10 +458,15 @@ export async function GET(
           }));
         } else if (Array.isArray(data.instructions)) {
           // If it's already an array of steps
-          instructions = data.instructions.map((inst: any, idx: number) => ({
-            step: idx + 1,
-            description: typeof inst === "string" ? inst : inst.step || "",
-          }));
+          instructions = data.instructions.map(
+            (inst: unknown, idx: number) => ({
+              step: idx + 1,
+              description:
+                typeof inst === "string"
+                  ? inst
+                  : String((inst as Record<string, unknown>).step || ""),
+            })
+          );
         }
       }
 

@@ -46,67 +46,6 @@ export default function RecipeList({
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   const [loadingMore, setLoadingMore] = useState(false);
-  const [likedRecipes, setLikedRecipes] = useState<Set<string>>(new Set());
-
-  const toggleLike = async (recipeId: string, e: React.MouseEvent) => {
-    e.preventDefault(); // Prevent navigation when clicking like button
-
-    const isLiked = likedRecipes.has(recipeId);
-
-    // Optimistic update
-    setLikedRecipes((prev) => {
-      const newSet = new Set(prev);
-      if (isLiked) {
-        newSet.delete(recipeId);
-      } else {
-        newSet.add(recipeId);
-      }
-      return newSet;
-    });
-
-    // Update recipe likes count
-    setRecipes((prev) =>
-      prev.map((recipe) => {
-        if (recipe.id === recipeId) {
-          return {
-            ...recipe,
-            likes: (recipe.likes || 0) + (isLiked ? -1 : 1),
-          };
-        }
-        return recipe;
-      })
-    );
-
-    try {
-      // Call your API to persist the like
-      await fetch(`/api/recipes/${recipeId}/like`, {
-        method: isLiked ? "DELETE" : "POST",
-      });
-    } catch (err) {
-      console.error("Error toggling like:", err);
-      // Revert on error
-      setLikedRecipes((prev) => {
-        const newSet = new Set(prev);
-        if (isLiked) {
-          newSet.add(recipeId);
-        } else {
-          newSet.delete(recipeId);
-        }
-        return newSet;
-      });
-      setRecipes((prev) =>
-        prev.map((recipe) => {
-          if (recipe.id === recipeId) {
-            return {
-              ...recipe,
-              likes: (recipe.likes || 0) + (isLiked ? 1 : -1),
-            };
-          }
-          return recipe;
-        })
-      );
-    }
-  };
 
   useEffect(() => {
     const fetchRecipes = async () => {
@@ -263,6 +202,7 @@ export default function RecipeList({
               <div className="relative h-48 overflow-hidden bg-gray-100">
                 <img
                   src={recipe.image}
+                  alt={recipe.title}
                   className="object-cover group-hover:scale-105 transition-transform duration-500"
                   sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                 />

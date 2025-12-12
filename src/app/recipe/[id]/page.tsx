@@ -9,7 +9,6 @@ import {
   ChefHat,
   Heart,
   Share2,
-  Bookmark,
   Star,
   Printer,
   MessageCircle,
@@ -161,8 +160,7 @@ export default function RecipeDetails() {
   const [related, setRelated] = useState<RelatedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isFavorite, setIsFavorite] = useState(false);
-  const [isSaved, setIsSaved] = useState(false);
+
   const [activeTab, setActiveTab] = useState<"instructions" | "ingredients">(
     "instructions"
   );
