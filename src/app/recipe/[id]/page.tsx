@@ -437,6 +437,7 @@ export default function RecipeDetails() {
           {/* Hero Image */}
           <div className="relative h-[400px] sm:h-[500px] overflow-hidden">
             <img
+              title={recipe.title}
               src={recipeImage}
               alt={recipe.title}
               className="w-full h-full object-cover"
@@ -522,11 +523,11 @@ export default function RecipeDetails() {
               <h1 className="text-4xl sm:text-5xl font-extrabold text-white mb-3 drop-shadow-lg">
                 {recipe.title}
               </h1>
-              {recipe.description && (
+              {/* {recipe.description && (
                 <p className="text-white/90 text-lg max-w-3xl drop-shadow">
                   {recipe.description}
                 </p>
-              )}
+              )} */}
             </div>
           </div>
 

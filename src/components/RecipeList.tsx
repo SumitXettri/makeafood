@@ -7,7 +7,6 @@ interface Recipe {
   title: string;
   image: string;
   source: string;
-  description: string;
   ingredients: string[];
   prep_time_minutes: number;
   cook_time_minutes: number;
@@ -197,7 +196,10 @@ export default function RecipeList({
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
         {recipes.map((recipe) => (
           <Link key={recipe.id} href={`/recipe/${recipe.id}`} className="group">
-            <div className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden h-full flex flex-col border border-gray-100">
+            <div
+              title={recipe.title}
+              className="bg-white rounded-2xl shadow-sm hover:shadow-2xl transition-all duration-300 overflow-hidden h-full flex flex-col border border-gray-100"
+            >
               {/* Image */}
               <div className="relative h-48 overflow-hidden bg-gray-100">
                 <img
@@ -293,11 +295,6 @@ export default function RecipeList({
                 <h3 className="text-lg font-bold text-gray-900 mb-2 group-hover:text-orange-600 transition-colors line-clamp-2 leading-tight">
                   {recipe.title}
                 </h3>
-
-                {/* Description */}
-                <p className="text-gray-600 text-xs mb-3 line-clamp-2 flex-1 leading-relaxed">
-                  {recipe.description}
-                </p>
 
                 {/* Tags (for Community recipes) */}
                 {recipe.tags && recipe.tags.length > 0 && (

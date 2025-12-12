@@ -317,6 +317,7 @@ export default function HomePage() {
             {todaySpecials.map((recipe) => (
               <div
                 key={recipe.id}
+                title={recipe.title}
                 className="group relative bg-white rounded-2xl overflow-hidden shadow-lg hover:shadow-2xl transition-all duration-300 cursor-pointer transform hover:-translate-y-2"
                 onClick={() => router.push(`/recipe/${recipe.idd}`)}
                 onMouseEnter={() => setHoveredCard(recipe.id)}
