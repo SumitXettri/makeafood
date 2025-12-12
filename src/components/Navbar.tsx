@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import Image from "next/image";
 import AuthModal from "./AuthModal";
+import Link from "next/link";
 
 export default function Navbar() {
   const router = useRouter();
@@ -136,7 +137,7 @@ export default function Navbar() {
                 <Search size={18} /> AI Search
               </a>
               <a
-                href="/trending"
+                href="/community"
                 className="text-gray-700 hover:text-orange-600 transition font-medium flex items-center gap-2"
               >
                 <TrendingUp size={18} /> Community
@@ -190,8 +191,10 @@ export default function Navbar() {
                   </button>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-xl font-medium">
-                      <User size={16} />
-                      <span>{username}</span>
+                      <Link href="/profile" className="flex items-center gap-2">
+                        <User size={16} />
+                        <span>{username}</span>
+                      </Link>
                     </div>
                     <button
                       onClick={openLogoutModal}
@@ -264,7 +267,7 @@ export default function Navbar() {
                 <Search size={18} /> AI Search
               </a>
               <a
-                href="/trending"
+                href="/community"
                 className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
                 onClick={() => setMobileMenuOpen(false)}
               >
