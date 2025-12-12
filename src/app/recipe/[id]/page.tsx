@@ -462,7 +462,7 @@ export default function RecipeDetails() {
 
             {/* Floating action buttons */}
             <div className="absolute top-6 right-6 flex gap-3">
-              <button
+              {/* <button
                 onClick={() => setIsFavorite(!isFavorite)}
                 className={`w-12 h-12 ${
                   isFavorite ? "bg-red-500" : "bg-white/90 backdrop-blur-sm"
@@ -474,8 +474,8 @@ export default function RecipeDetails() {
                   }
                   size={22}
                 />
-              </button>
-              <button
+              </button> */}
+              {/* <button
                 onClick={() => setIsSaved(!isSaved)}
                 className={`w-12 h-12 ${
                   isSaved ? "bg-orange-500" : "bg-white/90 backdrop-blur-sm"
@@ -487,7 +487,7 @@ export default function RecipeDetails() {
                   }
                   size={22}
                 />
-              </button>
+              </button> */}
               <button className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:scale-110 transition-all shadow-lg">
                 <Share2 className="text-gray-700" size={22} />
               </button>

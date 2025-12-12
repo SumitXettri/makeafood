@@ -334,9 +334,9 @@ export default function HomePage() {
                   <div
                     className={`absolute inset-0 bg-gradient-to-t ${recipe.color} opacity-20 group-hover:opacity-40 transition-opacity`}
                   ></div>
-                  <button className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition">
+                  {/* <button className="absolute top-4 right-4 w-10 h-10 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:bg-white transition">
                     <Heart className="text-red-500" size={20} />
-                  </button>
+                  </button> */}
                   <div className="absolute bottom-4 left-4 right-4">
                     <span className="px-3 py-1 bg-white/90 backdrop-blur-sm rounded-full text-xs font-semibold text-gray-800">
                       {recipe.cuisine}
@@ -448,16 +448,13 @@ export default function HomePage() {
                 </li>
                 <li>
                   <a href="#" className="hover:text-orange-600 transition">
-                    Categories
+                    Generate Recipe
                   </a>
                 </li>
                 <li>
-                  <Link
-                    href={"/trending"}
-                    className="hover:text-orange-600 transition"
-                  >
-                    Trending
-                  </Link>
+                  <a href="#" className="hover:text-orange-600 transition">
+                    About us
+                  </a>
                 </li>
               </ul>
             </div>
@@ -473,13 +470,11 @@ export default function HomePage() {
                   </Link>
                 </li>
                 <li>
-                  <a href="#" className="hover:text-orange-600 transition">
+                  <a
+                    href="/community"
+                    className="hover:text-orange-600 transition"
+                  >
                     Join Us
-                  </a>
-                </li>
-                <li>
-                  <a href="#" className="hover:text-orange-600 transition">
-                    Blog
                   </a>
                 </li>
               </ul>

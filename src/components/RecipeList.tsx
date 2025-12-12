@@ -268,7 +268,7 @@ export default function RecipeList({
                 />
 
                 {/* Like button */}
-                <button
+                {/* <button
                   onClick={(e) => toggleLike(recipe.id, e)}
                   className="absolute top-3 left-3 p-2 bg-white/90 hover:bg-white rounded-full shadow-lg transition-all duration-300 hover:scale-110 active:scale-95"
                 >
@@ -288,7 +288,7 @@ export default function RecipeList({
                       d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"
                     />
                   </svg>
-                </button>
+                </button> */}
 
                 {/* Stats overlay for Community recipes */}
                 {recipe.source === "Community" && (

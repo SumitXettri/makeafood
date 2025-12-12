@@ -50,6 +50,17 @@ interface SpoonacularIngredient {
   amount: number;
   unit: string;
   name: string;
+  original?: string; // Full original text like "1 cup sugar"
+}
+
+interface SpoonacularStep {
+  number: number;
+  step: string;
+}
+
+interface SpoonacularInstruction {
+  name?: string;
+  steps: SpoonacularStep[];
 }
 
 interface SpoonacularRecipe {
@@ -58,14 +69,18 @@ interface SpoonacularRecipe {
   image: string;
   dishTypes?: string[];
   cuisines?: string[];
-  instructions?: string;
+  summary?: string; // HTML description
+  instructions?: string | SpoonacularInstruction[]; // Can be string or structured
+  analyzedInstructions?: SpoonacularInstruction[]; // Alternative field
   extendedIngredients?: SpoonacularIngredient[];
   preparationMinutes?: number;
   cookingMinutes?: number;
   servings?: number;
   difficulty?: string;
+  spoonacularScore?: number; // 0-100 rating
+  sourceUrl?: string;
+  readyInMinutes?: number;
 }
-
 interface DatabaseRecipe {
   id: number;
   title: string;
@@ -386,6 +401,8 @@ export async function GET(
     // 🥘 SPOONACULAR Recipe
     // ===========================
 
+    // Replace your Spoonacular section with this updated version
+
     if (source === "spoonacular") {
       const spoonId = id.replace("s-", "");
 
@@ -396,24 +413,106 @@ export async function GET(
       if (!res.ok) throw new Error("Failed to fetch Spoonacular recipe");
       const data = (await res.json()) as SpoonacularRecipe;
 
-      // Build full image URL (default size: 636x393)
+      // Build full image URL
       const imageUrl = data.image?.startsWith("http")
         ? data.image
         : `https://spoonacular.com/recipeImages/${data.image}`;
 
-      const recipe: RelatedRecipe = {
+      // Parse ingredients from extendedIngredients
+      const ingredients: string[] = [];
+      if (data.extendedIngredients && Array.isArray(data.extendedIngredients)) {
+        data.extendedIngredients.forEach((ing) => {
+          const amount = ing.amount || "";
+          const unit = ing.unit || "";
+          const name = ing.name || "";
+
+          // Format: "1 cup sugar" or just "salt" if no amount
+          const formatted =
+            amount && unit
+              ? `${amount} ${unit} ${name}`.trim()
+              : amount
+              ? `${amount} ${name}`.trim()
+              : name;
+
+          if (formatted) {
+            ingredients.push(formatted);
+          }
+        });
+      }
+
+      // Parse instructions
+      let instructions: Array<{ step: number; description: string }> = [];
+
+      if (data.instructions) {
+        // Spoonacular can return instructions as a string or structured data
+        if (typeof data.instructions === "string") {
+          // Split by periods, newlines, or numbered steps
+          const steps = data.instructions
+            .split(/\r?\n|(?<=\.)\s+|\d+\.\s+/)
+            .map((s) => s.trim())
+            .filter((s) => s.length > 10); // Filter out very short fragments
+
+          instructions = steps.map((desc, idx) => ({
+            step: idx + 1,
+            description: desc,
+          }));
+        } else if (Array.isArray(data.instructions)) {
+          // If it's already an array of steps
+          instructions = data.instructions.map((inst: any, idx: number) => ({
+            step: idx + 1,
+            description: typeof inst === "string" ? inst : inst.step || "",
+          }));
+        }
+      }
+
+      // If no instructions found, provide a fallback
+      if (instructions.length === 0) {
+        instructions = [
+          {
+            step: 1,
+            description:
+              "Instructions not available for this recipe. Please refer to the source website.",
+          },
+        ];
+      }
+
+      // If still no instructions, try analyzedInstructions
+      if (instructions.length === 0 && data.analyzedInstructions) {
+        const analyzed = Array.isArray(data.analyzedInstructions)
+          ? data.analyzedInstructions[0]
+          : data.analyzedInstructions;
+
+        if (analyzed?.steps) {
+          instructions = analyzed.steps.map((s: SpoonacularStep) => ({
+            step: s.number,
+            description: s.step,
+          }));
+        }
+      }
+
+      const recipe = {
         id,
         title: data.title,
         image: imageUrl,
         category: data.dishTypes?.[0] || "N/A",
         area: data.cuisines?.[0] || "Unknown",
+        cuisine: data.cuisines?.[0] || "Unknown",
         source: "Spoonacular",
-
+        description: data.summary
+          ? data.summary.replace(/<[^>]*>/g, "").substring(0, 200) + "..."
+          : "",
+        ingredients, // ✅ Now included
+        instructions, // ✅ Now included
         prep_time_minutes: data.preparationMinutes || 0,
         cook_time_minutes: data.cookingMinutes || 0,
         servings: data.servings || 0,
         difficulty_level: data.difficulty || "Medium",
+        rating: data.spoonacularScore
+          ? Math.round(data.spoonacularScore / 20)
+          : 0, // Convert 0-100 to 0-5
         youtube_link: getYouTubeSearchLink(data.title),
+        video_url: data.sourceUrl || undefined,
+        tags: data.dishTypes || [],
       };
 
       // Fetch similar recipes for "related"
@@ -427,21 +526,18 @@ export async function GET(
         related = relatedData.map((r) => ({
           id: `s-${r.id}`,
           title: r.title,
-          // Build full image URL for each related recipe
           image: r.image?.startsWith("http")
             ? r.image
             : `https://spoonacular.com/recipeImages/${r.image}`,
-          youtube_link: getYouTubeSearchLink(r.title),
+          difficulty_level: "Medium",
+          prep_time_minutes: 0,
+          cook_time_minutes: 0,
+          video_url: getYouTubeSearchLink(r.title),
         }));
       }
 
       return NextResponse.json({ recipe, related });
     }
-
-    return NextResponse.json(
-      { error: "Invalid recipe ID format" },
-      { status: 400 }
-    );
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error";
     console.error("Error:", message);

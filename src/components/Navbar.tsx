@@ -120,7 +120,7 @@ export default function Navbar() {
                 href="/trending"
                 className="text-gray-700 hover:text-orange-600 transition font-medium flex items-center gap-2"
               >
-                <TrendingUp size={18} /> Trending
+                <TrendingUp size={18} /> Community
               </a>
             </div>
 
@@ -249,7 +249,7 @@ export default function Navbar() {
                 className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
                 onClick={() => setMobileMenuOpen(false)}
               >
-                <TrendingUp size={18} /> Trending
+                <TrendingUp size={18} /> Community
               </a>
 
               {!username ? (
