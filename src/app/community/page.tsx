@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { createClient } from "@supabase/supabase-js";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
@@ -63,13 +63,51 @@ function CommunityPage() {
   ];
   const difficulties = ["Easy", "Medium", "Hard"];
 
+  const filterRecipes = useCallback(() => {
+    let filtered = recipes;
+
+    if (searchInput.trim()) {
+      const term = searchInput.toLowerCase();
+      filtered = filtered.filter(
+        (recipe) =>
+          recipe.title.toLowerCase().includes(term) ||
+          recipe.description?.toLowerCase().includes(term) ||
+          recipe.user_profile?.username?.toLowerCase().includes(term) ||
+          recipe.tags?.some((tag) => tag.toLowerCase().includes(term))
+      );
+    }
+
+    if (selectedCuisine) {
+      filtered = filtered.filter(
+        (recipe) =>
+          recipe.cuisine?.toLowerCase() === selectedCuisine.toLowerCase()
+      );
+    }
+
+    if (selectedDifficulty) {
+      filtered = filtered.filter(
+        (recipe) =>
+          recipe.difficulty_level?.toLowerCase() ===
+          selectedDifficulty.toLowerCase()
+      );
+    }
+
+    setFilteredRecipes(filtered);
+  }, [recipes, searchInput, selectedCuisine, selectedDifficulty]);
+
   useEffect(() => {
     fetchCommunityRecipes();
   }, []);
 
   useEffect(() => {
     filterRecipes();
-  }, [searchInput, selectedCuisine, selectedDifficulty, recipes]);
+  }, [
+    searchInput,
+    selectedCuisine,
+    selectedDifficulty,
+    recipes,
+    filterRecipes,
+  ]);
 
   const fetchCommunityRecipes = async () => {
     try {
@@ -110,43 +148,6 @@ function CommunityPage() {
     } finally {
       setLoading(false);
     }
-  };
-
-  const filterRecipes = () => {
-    let filtered = recipes;
-
-    if (searchInput.trim()) {
-      const term = searchInput.toLowerCase();
-      filtered = filtered.filter(
-        (recipe) =>
-          recipe.title.toLowerCase().includes(term) ||
-          recipe.description?.toLowerCase().includes(term) ||
-          recipe.user_profile?.username?.toLowerCase().includes(term) ||
-          recipe.tags?.some((tag) => tag.toLowerCase().includes(term))
-      );
-    }
-
-    if (selectedCuisine) {
-      filtered = filtered.filter(
-        (recipe) =>
-          recipe.cuisine?.toLowerCase() === selectedCuisine.toLowerCase()
-      );
-    }
-
-    if (selectedDifficulty) {
-      filtered = filtered.filter(
-        (recipe) =>
-          recipe.difficulty_level?.toLowerCase() ===
-          selectedDifficulty.toLowerCase()
-      );
-    }
-
-    setFilteredRecipes(filtered);
-  };
-
-  const handleSearch = (e?: React.FormEvent) => {
-    if (e) e.preventDefault();
-    filterRecipes();
   };
 
   const clearAllFilters = () => {
