@@ -26,6 +26,7 @@ interface DatabaseRecipe {
   likes: number;
   views: number;
   rating: number;
+  comment_count: number;
 }
 
 interface UserProfile {
@@ -36,8 +37,18 @@ interface UserProfile {
   bio: string | null;
 }
 
+interface Comment {
+  id: number;
+  recipe_id: number;
+  user_id: string;
+  content: string;
+  created_at: string;
+  user_profile?: UserProfile;
+}
+
 interface RecipeWithUser extends DatabaseRecipe {
   user_profile?: UserProfile;
+  isLikedByUser?: boolean;
 }
 
 function CommunityPage() {
@@ -47,6 +58,20 @@ function CommunityPage() {
   const [searchInput, setSearchInput] = useState("");
   const [selectedCuisine, setSelectedCuisine] = useState<string>("");
   const [selectedDifficulty, setSelectedDifficulty] = useState<string>("");
+  const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
+  const [userLikes, setUserLikes] = useState<Set<number>>(new Set());
+
+  const [comments, setComments] = useState<{ [key: number]: Comment[] }>({});
+  const [showComments, setShowComments] = useState<{ [key: number]: boolean }>(
+    {}
+  );
+  const [newComment, setNewComment] = useState<{ [key: number]: string }>({});
+  const [loadingComments, setLoadingComments] = useState<{
+    [key: number]: boolean;
+  }>({});
+  const [submittingComment, setSubmittingComment] = useState<{
+    [key: number]: boolean;
+  }>({});
 
   const cuisines = [
     "Nepali",
@@ -96,6 +121,7 @@ function CommunityPage() {
   }, [recipes, searchInput, selectedCuisine, selectedDifficulty]);
 
   useEffect(() => {
+    fetchCurrentUser();
     fetchCommunityRecipes();
   }, []);
 
@@ -108,6 +134,33 @@ function CommunityPage() {
     recipes,
     filterRecipes,
   ]);
+
+  const fetchCurrentUser = async () => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const { data } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+        setCurrentUser(data);
+
+        const { data: likes } = await supabase
+          .from("recipe_likes")
+          .select("recipe_id")
+          .eq("user_id", user.id);
+
+        if (likes) {
+          setUserLikes(new Set(likes.map((l) => l.recipe_id)));
+        }
+      }
+    } catch (error) {
+      console.error("Error fetching current user:", error);
+    }
+  };
 
   const fetchCommunityRecipes = async () => {
     try {
@@ -124,19 +177,16 @@ function CommunityPage() {
       if (recipesData && recipesData.length > 0) {
         const userIds = [...new Set(recipesData.map((r) => r.user_id))];
 
-        const { data: usersData, error: usersError } = await supabase
+        const { data: usersData } = await supabase
           .from("users")
           .select("id, username, email, avatar_url, bio")
           .in("id", userIds);
-
-        if (usersError) {
-          console.error("Could not fetch users:", usersError);
-        }
 
         const recipesWithUsers: RecipeWithUser[] = recipesData.map(
           (recipe) => ({
             ...recipe,
             user_profile: usersData?.find((u) => u.id === recipe.user_id),
+            isLikedByUser: userLikes.has(recipe.id),
           })
         );
 
@@ -147,6 +197,193 @@ function CommunityPage() {
       console.error("Error fetching community recipes:", error);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleLike = async (recipeId: number) => {
+    if (!currentUser) {
+      alert("Please sign in to like recipes");
+      return;
+    }
+
+    const isLiked = userLikes.has(recipeId);
+
+    try {
+      if (isLiked) {
+        await supabase
+          .from("recipe_likes")
+          .delete()
+          .eq("recipe_id", recipeId)
+          .eq("user_id", currentUser.id);
+
+        setUserLikes((prev) => {
+          const newSet = new Set(prev);
+          newSet.delete(recipeId);
+          return newSet;
+        });
+
+        setRecipes((prev) =>
+          prev.map((r) =>
+            r.id === recipeId
+              ? { ...r, likes: Math.max(0, r.likes - 1), isLikedByUser: false }
+              : r
+          )
+        );
+        setFilteredRecipes((prev) =>
+          prev.map((r) =>
+            r.id === recipeId
+              ? { ...r, likes: Math.max(0, r.likes - 1), isLikedByUser: false }
+              : r
+          )
+        );
+      } else {
+        await supabase.from("recipe_likes").insert({
+          recipe_id: recipeId,
+          user_id: currentUser.id,
+        });
+
+        setUserLikes((prev) => new Set(prev).add(recipeId));
+
+        setRecipes((prev) =>
+          prev.map((r) =>
+            r.id === recipeId
+              ? { ...r, likes: r.likes + 1, isLikedByUser: true }
+              : r
+          )
+        );
+        setFilteredRecipes((prev) =>
+          prev.map((r) =>
+            r.id === recipeId
+              ? { ...r, likes: r.likes + 1, isLikedByUser: true }
+              : r
+          )
+        );
+      }
+    } catch (error) {
+      console.error("Error toggling like:", error);
+      alert("Failed to update like. Please try again.");
+    }
+  };
+
+  const fetchComments = async (recipeId: number) => {
+    try {
+      setLoadingComments((prev) => ({ ...prev, [recipeId]: true }));
+
+      const { data: commentsData, error: commentsError } = await supabase
+        .from("comments")
+        .select("*")
+        .eq("recipe_id", recipeId)
+        .order("created_at", { ascending: false });
+
+      if (commentsError) throw commentsError;
+
+      if (commentsData && commentsData.length > 0) {
+        const userIds = [...new Set(commentsData.map((c) => c.user_id))];
+
+        const { data: usersData } = await supabase
+          .from("users")
+          .select("id, username, email, avatar_url, bio")
+          .in("id", userIds);
+
+        const commentsWithUsers = commentsData.map((comment) => ({
+          ...comment,
+          user_profile: usersData?.find((u) => u.id === comment.user_id),
+        }));
+
+        setComments((prev) => ({ ...prev, [recipeId]: commentsWithUsers }));
+      } else {
+        setComments((prev) => ({ ...prev, [recipeId]: [] }));
+      }
+    } catch (error) {
+      console.error("Error fetching comments:", error);
+    } finally {
+      setLoadingComments((prev) => ({ ...prev, [recipeId]: false }));
+    }
+  };
+
+  const toggleComments = async (recipeId: number) => {
+    const isCurrentlyShown = showComments[recipeId];
+    setShowComments((prev) => ({ ...prev, [recipeId]: !isCurrentlyShown }));
+
+    if (!isCurrentlyShown && !comments[recipeId]) {
+      await fetchComments(recipeId);
+    }
+  };
+
+  const handleAddComment = async (recipeId: number) => {
+    if (!currentUser) {
+      alert("Please sign in to comment");
+      return;
+    }
+
+    const content = newComment[recipeId]?.trim();
+    if (!content) return;
+
+    try {
+      setSubmittingComment((prev) => ({ ...prev, [recipeId]: true }));
+
+      const { data, error } = await supabase
+        .from("comments")
+        .insert({
+          recipe_id: recipeId,
+          user_id: currentUser.id,
+          content: content,
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+
+      const newCommentWithUser = {
+        ...data,
+        user_profile: currentUser,
+      };
+
+      setComments((prev) => ({
+        ...prev,
+        [recipeId]: [newCommentWithUser, ...(prev[recipeId] || [])],
+      }));
+
+      setNewComment((prev) => ({ ...prev, [recipeId]: "" }));
+
+      setRecipes((prev) =>
+        prev.map((r) =>
+          r.id === recipeId
+            ? { ...r, comment_count: (r.comment_count || 0) + 1 }
+            : r
+        )
+      );
+      setFilteredRecipes((prev) =>
+        prev.map((r) =>
+          r.id === recipeId
+            ? { ...r, comment_count: (r.comment_count || 0) + 1 }
+            : r
+        )
+      );
+    } catch (error) {
+      console.error("Error adding comment:", error);
+      alert("Failed to add comment. Please try again.");
+    } finally {
+      setSubmittingComment((prev) => ({ ...prev, [recipeId]: false }));
+    }
+  };
+
+  const handleShare = async (recipe: RecipeWithUser) => {
+    const shareData = {
+      title: recipe.title,
+      text: recipe.description || "Check out this recipe!",
+      url: `${window.location.origin}/recipe/${recipe.id}`,
+    };
+
+    try {
+      if (navigator.share) {
+        await navigator.share(shareData);
+      } else {
+        await navigator.clipboard.writeText(shareData.url);
+        alert("Recipe link copied to clipboard!");
+      }
+    } catch (error) {
+      console.error("Error sharing:", error);
     }
   };
 
@@ -162,14 +399,11 @@ function CommunityPage() {
     selectedDifficulty,
   ].filter(Boolean).length;
 
-  const getUserDisplayName = (recipe: RecipeWithUser): string => {
-    if (recipe.user_profile?.username) {
-      return recipe.user_profile.username;
-    }
-    if (recipe.user_profile?.email) {
-      return recipe.user_profile.email.split("@")[0];
-    }
-    return `Chef ${recipe.user_id.slice(0, 6)}`;
+  const getUserDisplayName = (profile?: UserProfile): string => {
+    if (!profile) return "Anonymous";
+    if (profile.username) return profile.username;
+    if (profile.email) return profile.email.split("@")[0];
+    return "Chef";
   };
 
   const getTotalTime = (recipe: DatabaseRecipe): number => {
@@ -193,10 +427,12 @@ function CommunityPage() {
     const now = new Date();
     const past = new Date(dateString);
     const diffInMs = now.getTime() - past.getTime();
-    const diffInHours = Math.floor(diffInMs / (1000 * 60 * 60));
+    const diffInMinutes = Math.floor(diffInMs / (1000 * 60));
+    const diffInHours = Math.floor(diffInMinutes / 60);
     const diffInDays = Math.floor(diffInHours / 24);
 
-    if (diffInHours < 1) return "Just now";
+    if (diffInMinutes < 1) return "Just now";
+    if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
     if (diffInHours < 24) return `${diffInHours}h ago`;
     if (diffInDays < 7) return `${diffInDays}d ago`;
     return past.toLocaleDateString("en-US", {
@@ -224,19 +460,16 @@ function CommunityPage() {
 
   return (
     <div className="min-h-screen bg-gray-100">
-      {/* Top Navigation */}
-      <div className="sticky top-0 z-20 ">
+      <div className="sticky top-0 z-20 bg-white border-b border-gray-300 shadow-sm">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <Navbar />
         </div>
       </div>
 
-      {/* Main Container */}
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-          {/* Left Sidebar - Filters */}
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-30">
+            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-24">
               <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
                   className="w-5 h-5 text-orange-500"
@@ -254,7 +487,6 @@ function CommunityPage() {
                 Filters
               </h2>
 
-              {/* Search */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Search
@@ -268,7 +500,6 @@ function CommunityPage() {
                 />
               </div>
 
-              {/* Cuisine */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Cuisine
@@ -287,7 +518,6 @@ function CommunityPage() {
                 </select>
               </div>
 
-              {/* Difficulty */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-2">
                   Difficulty
@@ -306,7 +536,6 @@ function CommunityPage() {
                 </select>
               </div>
 
-              {/* Clear Filters */}
               {activeFiltersCount > 0 && (
                 <button
                   onClick={clearAllFilters}
@@ -317,14 +546,12 @@ function CommunityPage() {
               )}
 
               <div className="mt-4 pt-4 border-t border-gray-200 text-sm text-gray-600">
-                Showing recipes
+                {filteredRecipes.length} of {recipes.length} recipes
               </div>
             </div>
           </div>
 
-          {/* Center Feed - Recipe Posts */}
           <div className="lg:col-span-6 space-y-4">
-            {/* Header */}
             <div className="bg-white rounded-lg shadow-sm p-6">
               <div className="flex items-center gap-3">
                 <svg
@@ -351,7 +578,6 @@ function CommunityPage() {
               </div>
             </div>
 
-            {/* Recipe Feed */}
             {filteredRecipes.length === 0 ? (
               <div className="bg-white rounded-lg shadow-sm p-12 text-center">
                 <svg
@@ -378,25 +604,26 @@ function CommunityPage() {
                   key={recipe.id}
                   className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
                 >
-                  {/* Post Header - User Info */}
                   <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
                       <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-red-400 flex items-center justify-center text-white font-bold">
                         {recipe.user_profile?.avatar_url ? (
                           <img
                             src={recipe.user_profile.avatar_url}
-                            alt={getUserDisplayName(recipe)}
+                            alt={getUserDisplayName(recipe.user_profile)}
                             className="w-full h-full rounded-full object-cover"
                           />
                         ) : (
                           <span>
-                            {getUserDisplayName(recipe).charAt(0).toUpperCase()}
+                            {getUserDisplayName(recipe.user_profile)
+                              .charAt(0)
+                              .toUpperCase()}
                           </span>
                         )}
                       </div>
                       <div>
                         <p className="font-semibold text-gray-900 text-sm">
-                          {getUserDisplayName(recipe)}
+                          {getUserDisplayName(recipe.user_profile)}
                         </p>
                         <p className="text-xs text-gray-500">
                           {getTimeAgo(recipe.created_at)}
@@ -414,7 +641,6 @@ function CommunityPage() {
                     )}
                   </div>
 
-                  {/* Post Content */}
                   <div className="px-4 pb-3">
                     <h2 className="text-xl font-bold text-gray-900 mb-1">
                       {recipe.title}
@@ -426,7 +652,6 @@ function CommunityPage() {
                     )}
                   </div>
 
-                  {/* Recipe Image */}
                   {recipe.image_url && (
                     <div className="relative w-full aspect-video bg-gray-200">
                       <img
@@ -437,7 +662,6 @@ function CommunityPage() {
                     </div>
                   )}
 
-                  {/* Recipe Details */}
                   <div className="px-4 py-3 border-t border-b border-gray-200 bg-gray-50">
                     <div className="flex flex-wrap gap-3 text-sm">
                       {getTotalTime(recipe) > 0 && (
@@ -487,7 +711,6 @@ function CommunityPage() {
                       )}
                     </div>
 
-                    {/* Tags */}
                     {recipe.tags && recipe.tags.length > 0 && (
                       <div className="flex flex-wrap gap-2 mt-2">
                         {recipe.tags.slice(0, 5).map((tag, index) => (
@@ -502,13 +725,19 @@ function CommunityPage() {
                     )}
                   </div>
 
-                  {/* Engagement Bar */}
-                  <div className="px-4 py-3 flex items-center justify-between">
+                  <div className="px-4 py-3 flex items-center justify-between border-b border-gray-200">
                     <div className="flex items-center gap-4">
-                      <button className="flex items-center gap-2 text-gray-600 hover:text-red-500 transition-colors">
+                      <button
+                        onClick={() => handleLike(recipe.id)}
+                        className={`flex items-center gap-2 transition-colors ${
+                          recipe.isLikedByUser
+                            ? "text-red-500"
+                            : "text-gray-600 hover:text-red-500"
+                        }`}
+                      >
                         <svg
                           className="w-5 h-5"
-                          fill="none"
+                          fill={recipe.isLikedByUser ? "currentColor" : "none"}
                           stroke="currentColor"
                           viewBox="0 0 24 24"
                         >
@@ -524,7 +753,10 @@ function CommunityPage() {
                         </span>
                       </button>
 
-                      <button className="flex items-center gap-2 text-gray-600 hover:text-blue-500 transition-colors">
+                      <button
+                        onClick={() => toggleComments(recipe.id)}
+                        className="flex items-center gap-2 text-gray-600 hover:text-blue-500 transition-colors"
+                      >
                         <svg
                           className="w-5 h-5"
                           fill="none"
@@ -535,38 +767,36 @@ function CommunityPage() {
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
+                            d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"
                           />
+                        </svg>
+                        <span className="text-sm font-medium">
+                          {recipe.comment_count || 0}
+                        </span>
+                      </button>
+
+                      <button
+                        onClick={() => handleShare(recipe)}
+                        className="flex items-center gap-2 text-gray-600 hover:text-green-500 transition-colors"
+                      >
+                        <svg
+                          className="w-5 h-5"
+                          fill="none"
+                          stroke="currentColor"
+                          viewBox="0 0 24 24"
+                        >
                           <path
                             strokeLinecap="round"
                             strokeLinejoin="round"
                             strokeWidth={2}
-                            d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"
+                            d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"
                           />
                         </svg>
-                        <span className="text-sm font-medium">
-                          {recipe.views || 0}
-                        </span>
+                        <span className="text-sm font-medium">Share</span>
                       </button>
-
-                      {recipe.rating > 0 && (
-                        <div className="flex items-center gap-1 text-gray-600">
-                          <svg
-                            className="w-5 h-5 text-yellow-500"
-                            fill="currentColor"
-                            viewBox="0 0 24 24"
-                          >
-                            <path d="M12 17.27L18.18 21l-1.64-7.03L22 9.24l-7.19-.61L12 2 9.19 8.63 2 9.24l5.46 4.73L5.82 21z" />
-                          </svg>
-                          <span className="text-sm font-medium">
-                            {recipe.rating.toFixed(1)}
-                          </span>
-                        </div>
-                      )}
                     </div>
 
                     <Link
-                      key={recipe.id}
                       href={`/recipe/${recipe.id}`}
                       className="flex items-center gap-2 px-4 py-2 text-orange-600 hover:bg-orange-50 rounded-lg transition-colors text-sm font-medium"
                     >
@@ -586,14 +816,110 @@ function CommunityPage() {
                       </svg>
                     </Link>
                   </div>
+
+                  {showComments[recipe.id] && (
+                    <div className="px-4 py-3 bg-gray-50">
+                      {currentUser && (
+                        <div className="mb-4">
+                          <div className="flex gap-3">
+                            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-red-400 flex items-center justify-center text-white font-bold flex-shrink-0">
+                              {currentUser.avatar_url ? (
+                                <img
+                                  src={currentUser.avatar_url}
+                                  alt={currentUser.username}
+                                  className="w-full h-full rounded-full object-cover"
+                                />
+                              ) : (
+                                <span className="text-sm">
+                                  {currentUser.username.charAt(0).toUpperCase()}
+                                </span>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <textarea
+                                value={newComment[recipe.id] || ""}
+                                onChange={(e) =>
+                                  setNewComment((prev) => ({
+                                    ...prev,
+                                    [recipe.id]: e.target.value,
+                                  }))
+                                }
+                                placeholder="Write a comment..."
+                                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm resize-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                                rows={2}
+                              />
+                              <button
+                                onClick={() => handleAddComment(recipe.id)}
+                                disabled={
+                                  !newComment[recipe.id]?.trim() ||
+                                  submittingComment[recipe.id]
+                                }
+                                className="mt-2 px-4 py-1.5 bg-orange-500 text-white rounded-lg text-sm font-medium hover:bg-orange-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                              >
+                                {submittingComment[recipe.id]
+                                  ? "Posting..."
+                                  : "Post"}
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+
+                      {loadingComments[recipe.id] ? (
+                        <div className="text-center py-4 text-gray-500 text-sm">
+                          Loading comments...
+                        </div>
+                      ) : comments[recipe.id]?.length > 0 ? (
+                        <div className="space-y-3">
+                          {comments[recipe.id].map((comment) => (
+                            <div key={comment.id} className="flex gap-3">
+                              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-orange-400 to-red-400 flex items-center justify-center text-white font-bold flex-shrink-0">
+                                {comment.user_profile?.avatar_url ? (
+                                  <img
+                                    src={comment.user_profile.avatar_url}
+                                    alt={getUserDisplayName(
+                                      comment.user_profile
+                                    )}
+                                    className="w-full h-full rounded-full object-cover"
+                                  />
+                                ) : (
+                                  <span className="text-sm">
+                                    {getUserDisplayName(comment.user_profile)
+                                      .charAt(0)
+                                      .toUpperCase()}
+                                  </span>
+                                )}
+                              </div>
+                              <div className="flex-1 bg-white rounded-lg p-3">
+                                <div className="flex items-center justify-between mb-1">
+                                  <p className="text-sm font-semibold text-gray-900">
+                                    {getUserDisplayName(comment.user_profile)}
+                                  </p>
+                                  <p className="text-xs text-gray-500">
+                                    {getTimeAgo(comment.created_at)}
+                                  </p>
+                                </div>
+                                <p className="text-sm text-gray-700">
+                                  {comment.content}
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      ) : (
+                        <div className="text-center py-4 text-gray-500 text-sm">
+                          No comments yet. Be the first to comment!
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               ))
             )}
           </div>
 
-          {/* Right Sidebar - Stats */}
           <div className="lg:col-span-3 hidden lg:block">
-            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-30">
+            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-24">
               <h2 className="text-lg font-bold text-gray-900 mb-4">
                 Community Stats
               </h2>
