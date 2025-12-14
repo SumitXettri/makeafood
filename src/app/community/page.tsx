@@ -121,8 +121,115 @@ function CommunityPage() {
   }, [recipes, searchInput, selectedCuisine, selectedDifficulty]);
 
   useEffect(() => {
-    fetchCurrentUser();
-    fetchCommunityRecipes();
+    const initialize = async () => {
+      await fetchCurrentUser();
+      await fetchCommunityRecipes();
+    };
+    initialize();
+  }, []);
+  useEffect(() => {
+    const initialize = async () => {
+      try {
+        // Step 1: Get current user
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        let currentUserLikes = new Set<number>();
+
+        if (user) {
+          const { data: userData } = await supabase
+            .from("users")
+            .select("*")
+            .eq("id", user.id)
+            .single();
+          setCurrentUser(userData);
+
+          // Step 2: Fetch user's likes
+          const { data: likes } = await supabase
+            .from("recipe_likes")
+            .select("recipe_id")
+            .eq("user_id", user.id);
+
+          if (likes) {
+            currentUserLikes = new Set(likes.map((l) => l.recipe_id));
+            setUserLikes(currentUserLikes);
+          }
+        }
+
+        // Step 3: Fetch recipes (now we have the likes)
+        setLoading(true);
+        const { data: recipesData, error: recipesError } = await supabase
+          .from("recipes")
+          .select("*")
+          .eq("is_public", true)
+          .order("created_at", { ascending: false });
+
+        if (recipesError) throw recipesError;
+
+        if (recipesData && recipesData.length > 0) {
+          const recipeIds = recipesData.map((r) => r.id);
+          const userIds = [...new Set(recipesData.map((r) => r.user_id))];
+
+          // Fetch users, likes, and comments in parallel
+          const [usersData, likeCounts, commentCounts] = await Promise.all([
+            supabase
+              .from("users")
+              .select("id, username, email, avatar_url, bio")
+              .in("id", userIds)
+              .then(({ data }) => data),
+            supabase
+              .from("recipe_likes")
+              .select("recipe_id")
+              .in("recipe_id", recipeIds)
+              .then(({ data }) => data),
+            supabase
+              .from("comments")
+              .select("recipe_id")
+              .in("recipe_id", recipeIds)
+              .then(({ data }) => data),
+          ]);
+
+          // Count likes per recipe
+          const likeCountMap = new Map<number, number>();
+          likeCounts?.forEach((like) => {
+            likeCountMap.set(
+              like.recipe_id,
+              (likeCountMap.get(like.recipe_id) || 0) + 1
+            );
+          });
+
+          // Count comments per recipe
+          const commentCountMap = new Map<number, number>();
+          commentCounts?.forEach((comment) => {
+            commentCountMap.set(
+              comment.recipe_id,
+              (commentCountMap.get(comment.recipe_id) || 0) + 1
+            );
+          });
+
+          // Build final recipes array with all data
+          const recipesWithUsers: RecipeWithUser[] = recipesData.map(
+            (recipe) => ({
+              ...recipe,
+              likes: likeCountMap.get(recipe.id) || 0,
+              comment_count: commentCountMap.get(recipe.id) || 0,
+              user_profile: usersData?.find((u) => u.id === recipe.user_id),
+              isLikedByUser: currentUserLikes.has(recipe.id), // ✅ This will now be correct!
+            })
+          );
+
+          setRecipes(recipesWithUsers);
+          setFilteredRecipes(recipesWithUsers);
+        }
+      } catch (error) {
+        console.error("Error initializing:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initialize();
   }, []);
 
   useEffect(() => {
@@ -140,6 +247,7 @@ function CommunityPage() {
       const {
         data: { user },
       } = await supabase.auth.getUser();
+
       if (user) {
         const { data } = await supabase
           .from("users")
@@ -148,23 +256,55 @@ function CommunityPage() {
           .single();
         setCurrentUser(data);
 
+        // Fetch user's likes
         const { data: likes } = await supabase
           .from("recipe_likes")
           .select("recipe_id")
           .eq("user_id", user.id);
 
         if (likes) {
-          setUserLikes(new Set(likes.map((l) => l.recipe_id)));
+          const likeSet = new Set(likes.map((l) => l.recipe_id));
+          setUserLikes(likeSet);
+          return likeSet; // Return the likes so we can use them immediately
         }
       }
+      return new Set<number>(); // Return empty set if no user
     } catch (error) {
       console.error("Error fetching current user:", error);
+      return new Set<number>();
+    }
+  };
+
+  const getCurrentUserLikes = async (): Promise<Set<number>> => {
+    try {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (user) {
+        const { data: likes } = await supabase
+          .from("recipe_likes")
+          .select("recipe_id")
+          .eq("user_id", user.id);
+
+        if (likes) {
+          return new Set(likes.map((l) => l.recipe_id));
+        }
+      }
+      return new Set<number>();
+    } catch (error) {
+      console.error("Error fetching user likes:", error);
+      return new Set<number>();
     }
   };
 
   const fetchCommunityRecipes = async () => {
     try {
       setLoading(true);
+
+      // Get current user's likes from state
+      // Since we await fetchCurrentUser() first, userLikes will be populated
+      const currentUserLikes = await getCurrentUserLikes(); // We'll create this helper
 
       const { data: recipesData, error: recipesError } = await supabase
         .from("recipes")
@@ -175,18 +315,51 @@ function CommunityPage() {
       if (recipesError) throw recipesError;
 
       if (recipesData && recipesData.length > 0) {
+        const recipeIds = recipesData.map((r) => r.id);
         const userIds = [...new Set(recipesData.map((r) => r.user_id))];
 
+        // Fetch user profiles
         const { data: usersData } = await supabase
           .from("users")
           .select("id, username, email, avatar_url, bio")
           .in("id", userIds);
 
+        // Fetch actual like counts for each recipe
+        const { data: likeCounts } = await supabase
+          .from("recipe_likes")
+          .select("recipe_id")
+          .in("recipe_id", recipeIds);
+
+        const likeCountMap = new Map<number, number>();
+        likeCounts?.forEach((like) => {
+          likeCountMap.set(
+            like.recipe_id,
+            (likeCountMap.get(like.recipe_id) || 0) + 1
+          );
+        });
+
+        // Fetch actual comment counts
+        const { data: commentCounts } = await supabase
+          .from("comments")
+          .select("recipe_id")
+          .in("recipe_id", recipeIds);
+
+        const commentCountMap = new Map<number, number>();
+        commentCounts?.forEach((comment) => {
+          commentCountMap.set(
+            comment.recipe_id,
+            (commentCountMap.get(comment.recipe_id) || 0) + 1
+          );
+        });
+
+        // Combine all data with proper isLikedByUser flag
         const recipesWithUsers: RecipeWithUser[] = recipesData.map(
           (recipe) => ({
             ...recipe,
+            likes: likeCountMap.get(recipe.id) || 0,
+            comment_count: commentCountMap.get(recipe.id) || 0,
             user_profile: usersData?.find((u) => u.id === recipe.user_id),
-            isLikedByUser: userLikes.has(recipe.id),
+            isLikedByUser: currentUserLikes.has(recipe.id), // Use the likes we fetched
           })
         );
 
@@ -459,8 +632,8 @@ function CommunityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-100">
-      <div className="sticky top-0 z-20 bg-white border-b border-gray-300 shadow-sm">
+    <div className="min-h-screen bg-[#FFF9ED]">
+      <div className="sticky top-0 z-20">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <Navbar />
         </div>
