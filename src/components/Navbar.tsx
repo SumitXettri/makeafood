@@ -191,7 +191,10 @@ export default function Navbar() {
                   </button>
                   <div className="flex items-center gap-3">
                     <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-xl font-medium">
-                      <Link href="/profile" className="flex items-center gap-2">
+                      <Link
+                        href="/dashboard"
+                        className="flex items-center gap-2"
+                      >
                         <User size={16} />
                         <span>{username}</span>
                       </Link>
