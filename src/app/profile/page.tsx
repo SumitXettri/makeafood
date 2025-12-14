@@ -1,7 +1,7 @@
 import React from "react";
 
-function ProfilePage() {
-  return <div>ProfilePage</div>;
+function Dashboard() {
+  return <div>Dashboard</div>;
 }
 
-export default ProfilePage;
+export default Dashboard;

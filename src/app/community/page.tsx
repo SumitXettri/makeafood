@@ -122,13 +122,6 @@ function CommunityPage() {
 
   useEffect(() => {
     const initialize = async () => {
-      await fetchCurrentUser();
-      await fetchCommunityRecipes();
-    };
-    initialize();
-  }, []);
-  useEffect(() => {
-    const initialize = async () => {
       try {
         // Step 1: Get current user
         const {
