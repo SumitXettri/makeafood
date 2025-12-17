@@ -2,12 +2,14 @@
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
-import nepaliRecipes from "@/data/nepali-recipes.json"; // 🆕 Import Nepali recipes
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
   process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
 );
+
+// 🇳🇵 GitHub URL for Nepali recipes JSON (use raw.githubusercontent.com)
+const NEPALI_RECIPES_URL = "https://raw.githubusercontent.com/SumitXettri/NepaliRecipe/main/recipes.json";
 
 // Interfaces...
 interface SpoonacularIngredient {
@@ -38,7 +40,6 @@ interface MealDBRecipe {
   strCategory?: string;
   strArea?: string;
   strTags?: string;
-  // Dynamic keys
   [key: `strIngredient${number}`]: string | undefined;
   [key: `strMeasure${number}`]: string | undefined;
 }
@@ -85,6 +86,10 @@ interface UnifiedRecipe {
 }
 
 const cache: Record<string, { data: UnifiedRecipe[]; expires: number }> = {};
+// 🆕 Cache for Nepali recipes JSON
+let nepaliRecipesCache: { meals: MealDBRecipe[] } | null = null;
+let nepaliRecipesCacheExpiry = 0;
+
 const MEALDB_RANDOM = "https://www.themealdb.com/api/json/v1/1/random.php";
 
 function getYouTubeSearchLink(recipeTitle: string): string {
@@ -125,13 +130,37 @@ function parseIngredients(ingredients: unknown): string[] {
   return [];
 }
 
-// 🇳🇵 NEW: Fetch Nepali recipes from JSON
+// 🇳🇵 NEW: Fetch Nepali recipes from GitHub
 async function fetchNepaliRecipes(
   query?: string,
   category?: string | null
 ): Promise<UnifiedRecipe[]> {
   try {
-    let filtered = nepaliRecipes.meals;
+    const now = Date.now();
+    
+    // Check cache (cache for 1 hour)
+    if (nepaliRecipesCache && nepaliRecipesCacheExpiry > now) {
+      console.log("✅ Using cached Nepali recipes");
+    } else {
+      console.log("🔄 Fetching Nepali recipes from GitHub...");
+      const response = await fetch(NEPALI_RECIPES_URL);
+      console.log("📡 GitHub response status:", response.status);
+      
+      if (!response.ok) {
+        console.error("❌ Failed to fetch Nepali recipes from GitHub:", response.statusText);
+        return [];
+      }
+      
+      const jsonData = await response.json();
+      console.log("📦 GitHub JSON data structure:", Object.keys(jsonData));
+      console.log("📊 Number of meals:", jsonData.meals?.length || 0);
+      
+      nepaliRecipesCache = jsonData;
+      nepaliRecipesCacheExpiry = now + 60 * 60 * 1000; // Cache for 1 hour
+    }
+
+    let filtered = nepaliRecipesCache?.meals || [];
+    console.log("🔍 Total Nepali recipes available:", filtered.length);
 
     // Filter by query
     if (query) {
@@ -142,6 +171,7 @@ async function fetchNepaliRecipes(
           meal.strTags?.toLowerCase().includes(q) ||
           meal.strCategory?.toLowerCase().includes(q)
       );
+      console.log(`🔎 Filtered by query "${query}":`, filtered.length, "recipes");
     }
 
     // Filter by category
@@ -149,7 +179,10 @@ async function fetchNepaliRecipes(
       filtered = filtered.filter(
         (meal) => meal.strCategory?.toLowerCase() === category.toLowerCase()
       );
+      console.log(`🏷️ Filtered by category "${category}":`, filtered.length, "recipes");
     }
+
+    console.log("✨ Returning", filtered.length, "Nepali recipes");
 
     // Transform to UnifiedRecipe format
     return filtered.map((meal) => {
@@ -172,7 +205,7 @@ async function fetchNepaliRecipes(
         image:
           meal.strMealThumb ||
           "https://via.placeholder.com/400x300?text=Nepali+Recipe",
-        source: "Nepali Collection", // 🇳🇵
+        source: "Nepali Collection",
         description:
           meal.strInstructions?.slice(0, 150) + "…" ||
           "Authentic Nepali recipe.",
@@ -186,13 +219,12 @@ async function fetchNepaliRecipes(
       };
     });
   } catch (error) {
-    console.error("Nepali recipes error:", error);
+    console.error("❌ Nepali recipes error:", error);
     return [];
   }
 }
 
 // Database recipes
-// Find this function and update it:
 async function fetchDatabaseRecipes(
   query?: string,
   genre?: string | null,
@@ -206,7 +238,7 @@ async function fetchDatabaseRecipes(
       .from("recipes")
       .select("*")
       .eq("is_public", true)
-      .eq("is_approved", true); // ✅ ADD THIS LINE - Only approved recipes
+      .eq("is_approved", true);
 
     if (query) {
       supabaseQuery = supabaseQuery.or(
@@ -279,11 +311,8 @@ function calculateScore(
 ): number {
   let score = 0;
 
-  // 🇳🇵 Boost Nepali recipes when relevant
   if (r.source === "Nepali Collection") {
-    score += 2; // Give Nepali recipes a boost
-
-    // Extra boost if searching for nepali-related terms
+    score += 2;
     if (q && (q.includes("nepal") || q.includes("momo") || q.includes("dal"))) {
       score += 3;
     }
@@ -368,22 +397,31 @@ export async function GET(req: NextRequest) {
       return NextResponse.json(cache[cacheKey].data);
     }
 
-    // 🚀 Fetch from ALL sources including Nepali!
+    // Fetch from ALL sources including Nepali
+    console.log("🚀 Starting recipe fetch...");
     const [spoonResults, mealResults, dbResults, nepaliResults] =
       await Promise.all([
         fetchSpoonacularRecipes(query, genre, apiKey),
         fetchMealDBRecipes(query),
         fetchDatabaseRecipes(query, genre, difficulty, country, mealType, diet),
-        fetchNepaliRecipes(query, genre), // 🇳🇵 NEW!
+        fetchNepaliRecipes(query, genre),
       ]);
+
+    console.log("📊 Recipe counts:");
+    console.log("  - Spoonacular:", spoonResults.length);
+    console.log("  - MealDB:", mealResults.length);
+    console.log("  - Database:", dbResults.length);
+    console.log("  - Nepali:", nepaliResults.length);
 
     // Combine all results
     const allRecipes = [
-      ...nepaliResults, // 🇳🇵 Put Nepali first for priority
+      ...nepaliResults,
       ...dbResults,
       ...spoonResults,
       ...mealResults,
     ];
+
+    console.log("📦 Total recipes before ranking:", allRecipes.length);
 
     // Apply ranking
     const rankedResults =
