@@ -156,6 +156,7 @@ function CommunityPage() {
           .from("recipes")
           .select("*")
           .eq("is_public", true)
+          .eq("is_approved", true) // ✅ ONLY SHOW APPROVED RECIPES
           .order("created_at", { ascending: false });
 
         if (recipesError) throw recipesError;
@@ -208,7 +209,7 @@ function CommunityPage() {
               likes: likeCountMap.get(recipe.id) || 0,
               comment_count: commentCountMap.get(recipe.id) || 0,
               user_profile: usersData?.find((u) => u.id === recipe.user_id),
-              isLikedByUser: currentUserLikes.has(recipe.id), // ✅ This will now be correct!
+              isLikedByUser: currentUserLikes.has(recipe.id),
             })
           );
 
@@ -223,6 +224,28 @@ function CommunityPage() {
     };
 
     initialize();
+
+    const subscription = supabase
+      .channel("recipe-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "recipes",
+          filter: "is_public=eq.true",
+        },
+        (payload) => {
+          console.log("Recipe change detected:", payload);
+          // Refetch recipes when changes occur
+          initialize();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
 
   useEffect(() => {
