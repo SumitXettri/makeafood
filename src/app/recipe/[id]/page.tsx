@@ -102,7 +102,6 @@ function RelatedRecipes({ recipes }: { recipes: RelatedRecipe[] }) {
                   alt={recipe.title}
                   className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                 />
-                console.log(recipe.image_url)
                 <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent"></div>
                 {totalTime > 0 && (
                   <div className="absolute bottom-3 left-3">
@@ -302,7 +301,12 @@ export default function RecipeDetails() {
         const res = await fetch(`/api/recipes/${params.id}`);
         const data = await res.json();
 
-        console.log("API Response:", data);
+        console.log("=== RECIPE DETAILS DEBUG ===");
+      console.log("Full API Response:", data);
+      console.log("Recipe Image:", data.recipe?.image);
+      console.log("Recipe Title:", data.recipe?.title);
+      console.log("Raw Ingredients:", data.recipe?.ingredients);
+      console.log("Raw Instructions:", data.recipe?.instructions);
 
         if (data.error) throw new Error(data.error);
 
