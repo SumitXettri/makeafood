@@ -18,11 +18,13 @@ interface UserProfile {
   created_at: string;
 }
 
+// Update the Recipe interface to include is_approved
 interface Recipe {
   id: number;
   title: string;
   description: string | null;
   is_public: boolean;
+  is_approved: boolean; // ✅ ADD THIS
   created_at: string;
   image_url: string | null;
   cuisine: string | null;
@@ -32,21 +34,28 @@ interface Recipe {
   comment_count: number;
 }
 
+// Update the activeTab to include pending
+
 function Dashboard() {
   const [currentUser, setCurrentUser] = useState<UserProfile | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
+  const [activeTab, setActiveTab] = useState<
+    "all" | "public" | "private" | "pending" | "approved"
+  >("all"); // ✅ ADD "approved"
+
+  // Update stats to include pending count
   const [stats, setStats] = useState({
     total: 0,
     public: 0,
     private: 0,
+    pending: 0, // ✅ ADD THIS
+    approved: 0, // ✅ ADD THIS
     likes: 0,
     views: 0,
     comments: 0,
   });
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState<"all" | "public" | "private">(
-    "all"
-  );
+
   const [showEditModal, setShowEditModal] = useState(false);
   const [form, setForm] = useState({ username: "", bio: "", avatar_url: "" });
   const [uploading, setUploading] = useState(false);
@@ -120,10 +129,13 @@ function Dashboard() {
         }));
 
         setRecipes(enriched);
+        // Replace the setStats call with this:
         setStats({
           total: enriched.length,
           public: enriched.filter((r) => r.is_public).length,
           private: enriched.filter((r) => !r.is_public).length,
+          pending: enriched.filter((r) => !r.is_approved).length, // ✅ ADD THIS
+          approved: enriched.filter((r) => r.is_approved).length, // ✅ ADD THIS
           likes: enriched.reduce((sum, r) => sum + r.likes, 0),
           views: enriched.reduce((sum, r) => sum + r.views, 0),
           comments: enriched.reduce((sum, r) => sum + r.comment_count, 0),
@@ -213,13 +225,15 @@ function Dashboard() {
     });
   };
 
-  const filtered = recipes.filter((r) =>
-    activeTab === "all"
-      ? true
-      : activeTab === "public"
-      ? r.is_public
-      : !r.is_public
-  );
+  // Replace the filtered recipes logic with this:
+  const filtered = recipes.filter((r) => {
+    if (activeTab === "all") return true;
+    if (activeTab === "public") return r.is_public;
+    if (activeTab === "private") return !r.is_public;
+    if (activeTab === "pending") return !r.is_approved;
+    if (activeTab === "approved") return r.is_approved;
+    return true;
+  });
 
   if (loading) {
     return (
@@ -328,9 +342,21 @@ function Dashboard() {
         </div>
 
         {/* Stats Cards */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4 mb-8">
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-4 mb-8">
           {[
             { label: "Total", value: stats.total, icon: "📚", color: "orange" },
+            {
+              label: "Approved",
+              value: stats.approved,
+              icon: "✅",
+              color: "green",
+            },
+            {
+              label: "Pending",
+              value: stats.pending,
+              icon: "⏳",
+              color: "yellow",
+            },
             {
               label: "Public",
               value: stats.public,
@@ -345,12 +371,6 @@ function Dashboard() {
             },
             { label: "Likes", value: stats.likes, icon: "❤️", color: "red" },
             { label: "Views", value: stats.views, icon: "👁️", color: "blue" },
-            {
-              label: "Comments",
-              value: stats.comments,
-              icon: "💬",
-              color: "purple",
-            },
           ].map((stat) => (
             <div
               key={stat.label}
@@ -393,16 +413,26 @@ function Dashboard() {
           </div>
 
           {/* Tabs */}
+          {/* Replace the tabs section with this: */}
           <div className="flex gap-1 px-6 border-b bg-gray-50">
             {[
               { key: "all", label: "All", count: stats.total },
+              { key: "approved", label: "Approved", count: stats.approved },
+              { key: "pending", label: "Pending Review", count: stats.pending },
               { key: "public", label: "Public", count: stats.public },
               { key: "private", label: "Private", count: stats.private },
             ].map((tab) => (
               <button
                 key={tab.key}
                 onClick={() =>
-                  setActiveTab(tab.key as "all" | "public" | "private")
+                  setActiveTab(
+                    tab.key as
+                      | "all"
+                      | "public"
+                      | "private"
+                      | "pending"
+                      | "approved"
+                  )
                 }
                 className={`px-6 py-4 font-semibold transition-colors relative ${
                   activeTab === tab.key
@@ -496,16 +526,17 @@ function Dashboard() {
                         </div>
                       )}
                       {/* Status Badge */}
-                      <div className="absolute top-3 right-3">
-                        <span
-                          className={`px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm ${
-                            recipe.is_public
-                              ? "bg-green-100/90 text-green-700"
-                              : "bg-gray-100/90 text-gray-700"
-                          }`}
-                        >
-                          {recipe.is_public ? "🌍 Public" : "🔒 Private"}
-                        </span>
+                      <div className="absolute top-3 right-3 flex gap-2">
+                        {/* Approval Status */}
+                        {recipe.is_approved ? (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm bg-green-100/90 text-green-700">
+                            ✅ Approved
+                          </span>
+                        ) : (
+                          <span className="px-3 py-1 rounded-full text-xs font-bold backdrop-blur-sm bg-yellow-100/90 text-yellow-700">
+                            ⏳ Pending
+                          </span>
+                        )}
                       </div>
                       {/* Difficulty Badge */}
                       {recipe.difficulty_level && (

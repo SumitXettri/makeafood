@@ -192,6 +192,7 @@ async function fetchNepaliRecipes(
 }
 
 // Database recipes
+// Find this function and update it:
 async function fetchDatabaseRecipes(
   query?: string,
   genre?: string | null,
@@ -204,7 +205,8 @@ async function fetchDatabaseRecipes(
     let supabaseQuery = supabase
       .from("recipes")
       .select("*")
-      .eq("is_public", true);
+      .eq("is_public", true)
+      .eq("is_approved", true); // ✅ ADD THIS LINE - Only approved recipes
 
     if (query) {
       supabaseQuery = supabaseQuery.or(
