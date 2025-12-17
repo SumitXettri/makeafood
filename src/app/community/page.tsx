@@ -159,6 +159,8 @@ function CommunityPage() {
           .eq("is_approved", true) // ✅ ONLY SHOW APPROVED RECIPES
           .order("created_at", { ascending: false });
 
+        console.log("Fetched recipes:", recipesData);
+
         if (recipesError) throw recipesError;
 
         if (recipesData && recipesData.length > 0) {

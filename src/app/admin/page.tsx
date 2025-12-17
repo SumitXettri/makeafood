@@ -12,7 +12,9 @@ import {
   Search,
   Eye,
   Clock,
+  AlertCircle,
 } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface DatabaseUser {
   id: string;
@@ -48,6 +50,7 @@ export default function AdminPanel() {
   const [user, setUser] = useState<import("@supabase/supabase-js").User | null>(
     null
   );
+  const router = useRouter();
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState("recipes");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
@@ -58,17 +61,91 @@ export default function AdminPanel() {
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [statusFilter, setStatusFilter] = useState("pending");
+  const [fetchingRecipes, setFetchingRecipes] = useState(false);
+  const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [isLoggingOut, setIsLoggingOut] = useState(false);
+
+  const openLogoutModal = () => {
+    setShowLogoutModal(true);
+  };
 
   useEffect(() => {
+    console.log("🚀 Admin Panel Component Mounted");
+    console.log("Initial check for logged in user...");
     checkUser();
   }, []);
 
   useEffect(() => {
+    console.log("\n🔄 useEffect triggered - activeTab or statusFilter changed");
+    console.log("User logged in:", !!user);
+    console.log("Active tab:", activeTab);
+    console.log("Status filter:", statusFilter);
+
     if (user) {
-      if (activeTab === "recipes") fetchRecipes();
-      if (activeTab === "users") fetchUsers();
+      if (activeTab === "recipes") {
+        console.log("→ Fetching recipes...");
+        fetchRecipes();
+      }
+      if (activeTab === "users") {
+        console.log("→ Fetching users...");
+        fetchUsers();
+      }
+    } else {
+      console.log("⚠️ No user logged in, skipping fetch");
     }
   }, [user, activeTab, statusFilter]);
+
+  // Real-time subscription
+  useEffect(() => {
+    if (!user || activeTab !== "recipes") {
+      console.log("Real-time subscription not active (no user or wrong tab)");
+      return;
+    }
+
+    console.log("🔴 Setting up real-time subscription for recipe changes...");
+
+    const channel = supabase
+      .channel("recipe-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "recipes",
+        },
+        (payload) => {
+          console.log("\n🔥 REAL-TIME UPDATE DETECTED!");
+          console.log("Event type:", payload.eventType);
+          console.log("Payload:", payload);
+          console.log("New recipe data:", payload.new);
+          console.log("Old recipe data:", payload.old);
+          console.log("→ Refetching recipes...");
+          fetchRecipes();
+        }
+      )
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
+
+    return () => {
+      console.log("🔴 Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [user, activeTab, statusFilter]);
+
+  // Log filtered recipes
+  useEffect(() => {
+    console.log("\n🔍 Filtering recipes");
+    console.log("Total recipes:", recipes.length);
+    console.log("Search term:", searchTerm);
+    const filtered = recipes.filter(
+      (r) =>
+        r.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.users?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.users?.username?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    console.log("Filtered results:", filtered.length);
+  }, [recipes, searchTerm]);
 
   const checkUser = async () => {
     try {
@@ -100,8 +177,7 @@ export default function AdminPanel() {
         .single();
 
       if (error) return false;
-      // Check if user email is in admin list (you can customize this)
-      const adminEmails = ["admin01@gmail.com", "admin02@gmail.com"]; // Add your admin emails
+      const adminEmails = ["admin01@gmail.com", "admin02@gmail.com"];
       return adminEmails.includes(data?.email);
     } catch (err) {
       console.error("Error in checkAdminStatus:", err);
@@ -135,14 +211,29 @@ export default function AdminPanel() {
       setLoading(false);
     }
   };
-
   const handleLogout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    setIsLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      router.push("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Failed to logout. Please try again.");
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
+    }
   };
 
   const fetchRecipes = async () => {
+    console.log("\n=== FETCH RECIPES START ===");
+    console.log("Current statusFilter:", statusFilter);
+    console.log("Current activeTab:", activeTab);
+    console.log("Current user:", user?.email);
+
     try {
+      setFetchingRecipes(true);
+
       let query = supabase
         .from("recipes")
         .select(
@@ -154,17 +245,58 @@ export default function AdminPanel() {
         .order("created_at", { ascending: false });
 
       if (statusFilter === "pending") {
+        console.log("Filtering for PENDING recipes (is_approved = false)");
         query = query.eq("is_approved", false);
       } else if (statusFilter === "approved") {
+        console.log("Filtering for APPROVED recipes (is_approved = true)");
         query = query.eq("is_approved", true);
+      } else {
+        console.log("Fetching ALL recipes (no filter)");
       }
 
+      console.log("Executing Supabase query...");
       const { data, error } = await query;
 
-      if (error) throw error;
+      if (error) {
+        console.error("❌ Supabase query error:", error);
+        throw error;
+      }
+
+      console.log("✅ Query successful!");
+      console.log("Total recipes fetched:", data?.length || 0);
+      console.log("Raw data from Supabase:", data);
+
+      if (data && data.length > 0) {
+        console.log("First recipe sample:", data[0]);
+        console.log(
+          "Recipe approval statuses:",
+          data.map((r) => ({
+            id: r.id,
+            title: r.title,
+            is_approved: r.is_approved,
+          }))
+        );
+
+        const approvedCount = data.filter((r) => r.is_approved).length;
+        const pendingCount = data.filter((r) => !r.is_approved).length;
+        console.log(
+          `Breakdown: ${approvedCount} approved, ${pendingCount} pending`
+        );
+      } else {
+        console.warn("⚠️ No recipes returned from query");
+      }
+
       setRecipes(data || []);
+      console.log("State updated with recipes");
     } catch (err: unknown) {
-      console.error("Error fetching recipes:", err);
+      console.error("❌ Error in fetchRecipes:", err);
+      console.error("Error details:", {
+        message: err instanceof Error ? err.message : "Unknown error",
+        error: err,
+      });
+    } finally {
+      setFetchingRecipes(false);
+      console.log("=== FETCH RECIPES END ===\n");
     }
   };
 
@@ -183,40 +315,100 @@ export default function AdminPanel() {
   };
 
   const approveRecipe = async (recipeId: string, approved: boolean) => {
+    console.log("\n=== APPROVE RECIPE START ===");
+    console.log("Recipe ID:", recipeId);
+    console.log("Setting approved to:", approved);
+    console.log("Setting is_public to:", approved);
+
     try {
-      const { error } = await supabase
+      console.log("Optimistically updating local state...");
+      setRecipes((prevRecipes) => {
+        const updated = prevRecipes.map((recipe) =>
+          recipe.id === recipeId ? { ...recipe, is_approved: approved } : recipe
+        );
+        console.log("Updated recipes count:", updated.length);
+        return updated;
+      });
+
+      console.log("Sending update to Supabase...");
+      const { data, error } = await supabase
         .from("recipes")
         .update({
           is_approved: approved,
           is_public: approved,
           updated_at: new Date().toISOString(),
         })
-        .eq("id", recipeId);
+        .eq("id", recipeId)
+        .select();
 
-      if (error) throw error;
-      fetchRecipes();
+      if (error) {
+        console.error("❌ Supabase update error:", error);
+        throw error;
+      }
+
+      console.log("✅ Supabase update successful!");
+      console.log("Updated recipe data:", data);
+
+      console.log("Refetching all recipes...");
+      await fetchRecipes();
+
       setSelectedRecipe(null);
+      console.log("Modal closed");
+      console.log("=== APPROVE RECIPE END ===\n");
     } catch (err: unknown) {
-      console.error("Error approving recipe:", err);
+      console.error("❌ Error approving recipe:", err);
+      console.error("Error details:", {
+        message: err instanceof Error ? err.message : "Unknown error",
+        error: err,
+      });
       alert("Failed to update recipe status");
+
+      console.log("Reverting optimistic update...");
+      await fetchRecipes();
     }
   };
 
   const deleteRecipe = async (recipeId: string) => {
-    if (!confirm("Are you sure you want to delete this recipe?")) return;
+    if (!confirm("Are you sure you want to delete this recipe?")) {
+      console.log("Delete cancelled by user");
+      return;
+    }
+
+    console.log("\n=== DELETE RECIPE START ===");
+    console.log("Recipe ID to delete:", recipeId);
 
     try {
+      console.log("Optimistically removing from local state...");
+      setRecipes((prevRecipes) => {
+        const filtered = prevRecipes.filter((recipe) => recipe.id !== recipeId);
+        console.log("Recipes remaining after delete:", filtered.length);
+        return filtered;
+      });
+
+      console.log("Sending delete request to Supabase...");
       const { error } = await supabase
         .from("recipes")
         .delete()
         .eq("id", recipeId);
 
-      if (error) throw error;
-      fetchRecipes();
+      if (error) {
+        console.error("❌ Supabase delete error:", error);
+        throw error;
+      }
+
+      console.log("✅ Recipe deleted successfully from database");
       setSelectedRecipe(null);
+      console.log("=== DELETE RECIPE END ===\n");
     } catch (err: unknown) {
-      console.error("Error deleting recipe:", err);
+      console.error("❌ Error deleting recipe:", err);
+      console.error("Error details:", {
+        message: err instanceof Error ? err.message : "Unknown error",
+        error: err,
+      });
       alert("Failed to delete recipe");
+
+      console.log("Refetching recipes after delete error...");
+      await fetchRecipes();
     }
   };
 
@@ -270,6 +462,7 @@ export default function AdminPanel() {
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter admin email"
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
             </div>
@@ -280,6 +473,7 @@ export default function AdminPanel() {
               <input
                 type="password"
                 value={password}
+                placeholder="Enter admin password"
                 onChange={(e) => setPassword(e.target.value)}
                 className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
               />
@@ -298,6 +492,12 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
+      {fetchingRecipes && (
+        <div className="text-center py-4">
+          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-orange-500 border-t-transparent"></div>
+          <p className="text-sm text-gray-600 mt-2">Refreshing recipes...</p>
+        </div>
+      )}
       <nav className="bg-white shadow-md">
         <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
           <div className="flex items-center space-x-3">
@@ -309,7 +509,7 @@ export default function AdminPanel() {
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-600">{user.email}</span>
             <button
-              onClick={handleLogout}
+              onClick={openLogoutModal}
               className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
             >
               Logout
@@ -387,8 +587,31 @@ export default function AdminPanel() {
                     All
                   </button>
                 </div>
-              </div>
 
+                {/* ✅ ADD THIS REFRESH BUTTON */}
+                <button
+                  onClick={fetchRecipes}
+                  disabled={fetchingRecipes}
+                  className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition font-medium disabled:opacity-50"
+                >
+                  <svg
+                    className={`w-5 h-5 inline mr-2 ${
+                      fetchingRecipes ? "animate-spin" : ""
+                    }`}
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
+                    />
+                  </svg>
+                  Refresh
+                </button>
+              </div>
               <div className="mb-6">
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
@@ -699,6 +922,63 @@ export default function AdminPanel() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showLogoutModal && (
+        <div
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          onClick={(e) => {
+            if (e.target === e.currentTarget && !isLoggingOut) {
+              setShowLogoutModal(false);
+            }
+          }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="text-red-600" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Confirm Logout
+                  </h3>
+                  <p className="text-sm text-gray-500">
+                    Are you sure you want to log out?
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                disabled={isLoggingOut}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+
+            <p className="text-gray-600 mb-6">
+              You will be signed out of your account.
+            </p>
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowLogoutModal(false)}
+                disabled={isLoggingOut}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 py-3 rounded-xl"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleLogout}
+                disabled={isLoggingOut}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl flex items-center justify-center gap-2"
+              >
+                {isLoggingOut ? "Logging out..." : "Logout"}
+              </button>
             </div>
           </div>
         </div>
