@@ -91,6 +91,29 @@ export default function AdminPanel() {
   };
 
   useEffect(() => {
+    if (selectedRecipe || selectedNepaliRecipe) {
+      // Save current scroll position
+      const scrollY = window.scrollY;
+
+      // Lock body scroll
+      document.body.style.overflow = "hidden";
+      document.body.style.position = "fixed";
+      document.body.style.top = `-${scrollY}px`;
+      document.body.style.width = "100%";
+
+      return () => {
+        // Restore body scroll
+        document.body.style.overflow = "";
+        document.body.style.position = "";
+        document.body.style.top = "";
+        document.body.style.width = "";
+
+        // Restore scroll position
+        window.scrollTo(0, scrollY);
+      };
+    }
+  }, [selectedRecipe, selectedNepaliRecipe]);
+  useEffect(() => {
     console.log("🚀 Admin Panel Component Mounted");
     console.log("Initial check for logged in user...");
     checkUser();
@@ -976,21 +999,21 @@ export default function AdminPanel() {
       {/* Recipe Detail Modal */}
       {selectedRecipe && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           onClick={() => setSelectedRecipe(null)}
         >
           <div
-            className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">
+            <div className="p-8">
+              <div className="flex justify-between items-start mb-6">
+                <h2 className="text-3xl font-bold text-gray-900 pr-4">
                   {selectedRecipe.title}
                 </h2>
                 <button
                   onClick={() => setSelectedRecipe(null)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-all"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -1000,51 +1023,59 @@ export default function AdminPanel() {
                 <img
                   src={selectedRecipe.image_url}
                   alt={selectedRecipe.title}
-                  className="w-full h-64 object-cover rounded-lg mb-4"
+                  className="w-full h-72 object-cover rounded-xl mb-6 shadow-md"
                 />
               )}
 
-              <div className="space-y-4">
+              <div className="space-y-6">
                 {selectedRecipe.description && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700 mb-2">
+                  <div className="bg-gray-50 p-4 rounded-xl">
+                    <h3 className="font-semibold text-gray-800 mb-2 text-lg">
                       Description
                     </h3>
-                    <p className="text-gray-600">
+                    <p className="text-gray-600 leading-relaxed">
                       {selectedRecipe.description}
                     </p>
                   </div>
                 )}
 
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
                   {selectedRecipe.prep_time_minutes && (
-                    <div>
-                      <h4 className="font-semibold text-gray-700">Prep Time</h4>
-                      <p className="text-gray-600">
+                    <div className="bg-blue-50 p-4 rounded-xl text-center">
+                      <h4 className="font-semibold text-blue-900 text-sm">
+                        Prep Time
+                      </h4>
+                      <p className="text-blue-700 font-bold text-lg mt-1">
                         {selectedRecipe.prep_time_minutes} min
                       </p>
                     </div>
                   )}
                   {selectedRecipe.cook_time_minutes && (
-                    <div>
-                      <h4 className="font-semibold text-gray-700">Cook Time</h4>
-                      <p className="text-gray-600">
+                    <div className="bg-orange-50 p-4 rounded-xl text-center">
+                      <h4 className="font-semibold text-orange-900 text-sm">
+                        Cook Time
+                      </h4>
+                      <p className="text-orange-700 font-bold text-lg mt-1">
                         {selectedRecipe.cook_time_minutes} min
                       </p>
                     </div>
                   )}
                   {selectedRecipe.servings && (
-                    <div>
-                      <h4 className="font-semibold text-gray-700">Servings</h4>
-                      <p className="text-gray-600">{selectedRecipe.servings}</p>
+                    <div className="bg-green-50 p-4 rounded-xl text-center">
+                      <h4 className="font-semibold text-green-900 text-sm">
+                        Servings
+                      </h4>
+                      <p className="text-green-700 font-bold text-lg mt-1">
+                        {selectedRecipe.servings}
+                      </p>
                     </div>
                   )}
                   {selectedRecipe.difficulty_level && (
-                    <div>
-                      <h4 className="font-semibold text-gray-700">
+                    <div className="bg-purple-50 p-4 rounded-xl text-center">
+                      <h4 className="font-semibold text-purple-900 text-sm">
                         Difficulty
                       </h4>
-                      <p className="text-gray-600">
+                      <p className="text-purple-700 font-bold text-lg mt-1">
                         {selectedRecipe.difficulty_level}
                       </p>
                     </div>
@@ -1052,40 +1083,62 @@ export default function AdminPanel() {
                 </div>
 
                 {selectedRecipe.ingredients && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700 mb-2">
+                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl">
+                    <h3 className="font-bold text-gray-800 mb-3 text-lg">
                       Ingredients
                     </h3>
-                    <ul className="list-disc list-inside space-y-1">
-                      {selectedRecipe.ingredients.map((ing, i) => (
-                        <li key={i} className="text-gray-600">
-                          {ing}
-                        </li>
-                      ))}
+                    <ul className="space-y-2">
+                      {selectedRecipe.ingredients
+                        .sort(
+                          (a: any, b: any) => (a.order || 0) - (b.order || 0)
+                        )
+                        .map((ing: any, i) => (
+                          <li
+                            key={i}
+                            className="text-gray-700 flex items-start"
+                          >
+                            <span className="text-green-600 mr-2 mt-1">•</span>
+                            <span>
+                              {typeof ing === "string" ? ing : ing.item}
+                            </span>
+                          </li>
+                        ))}
                     </ul>
                   </div>
                 )}
 
                 {selectedRecipe.instructions && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700 mb-2">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-xl">
+                    <h3 className="font-bold text-gray-800 mb-3 text-lg">
                       Instructions
                     </h3>
-                    <ol className="list-decimal list-inside space-y-2">
-                      {selectedRecipe.instructions.map((inst, i) => (
-                        <li key={i} className="text-gray-600">
-                          {inst}
-                        </li>
-                      ))}
+                    <ol className="space-y-3">
+                      {selectedRecipe.instructions
+                        .sort(
+                          (a: any, b: any) => (a.order || 0) - (b.order || 0)
+                        )
+                        .map((inst: any, i) => (
+                          <li
+                            key={i}
+                            className="text-gray-700 flex items-start"
+                          >
+                            <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3 flex-shrink-0 mt-0.5">
+                              {i + 1}
+                            </span>
+                            <span className="leading-relaxed">
+                              {typeof inst === "string" ? inst : inst.item}
+                            </span>
+                          </li>
+                        ))}
                     </ol>
                   </div>
                 )}
 
-                <div className="flex gap-3 mt-6">
+                <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
                   {!selectedRecipe.is_approved ? (
                     <button
                       onClick={() => approveRecipe(selectedRecipe.id, true)}
-                      className="flex-1 bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-semibold"
+                      className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                     >
                       <Check className="w-5 h-5 inline mr-2" />
                       Approve Recipe
@@ -1093,14 +1146,14 @@ export default function AdminPanel() {
                   ) : (
                     <button
                       onClick={() => approveRecipe(selectedRecipe.id, false)}
-                      className="flex-1 bg-yellow-600 text-white py-3 rounded-lg hover:bg-yellow-700 transition font-semibold"
+                      className="flex-1 bg-gradient-to-r from-yellow-600 to-yellow-700 text-white py-3 rounded-xl hover:from-yellow-700 hover:to-yellow-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                     >
                       Unapprove Recipe
                     </button>
                   )}
                   <button
                     onClick={() => deleteRecipe(selectedRecipe.id)}
-                    className="flex-1 bg-red-600 text-white py-3 rounded-lg hover:bg-red-700 transition font-semibold"
+                    className="flex-1 bg-gradient-to-r from-red-600 to-red-700 text-white py-3 rounded-xl hover:from-red-700 hover:to-red-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                   >
                     <Ban className="w-5 h-5 inline mr-2" />
                     Delete Recipe
@@ -1115,21 +1168,21 @@ export default function AdminPanel() {
       {/* Nepali Recipe Detail Modal */}
       {selectedNepaliRecipe && (
         <div
-          className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50"
+          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
           onClick={() => setSelectedNepaliRecipe(null)}
         >
           <div
-            className="bg-white rounded-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto"
+            className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="p-6">
-              <div className="flex justify-between items-start mb-4">
-                <h2 className="text-2xl font-bold text-gray-800">
+            <div className="p-8">
+              <div className="flex justify-between items-start mb-6">
+                <h2 className="text-3xl font-bold text-gray-900 pr-4">
                   {selectedNepaliRecipe.strMeal}
                 </h2>
                 <button
                   onClick={() => setSelectedNepaliRecipe(null)}
-                  className="text-gray-500 hover:text-gray-700"
+                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-all"
                 >
                   <X className="w-6 h-6" />
                 </button>
@@ -1139,40 +1192,49 @@ export default function AdminPanel() {
                 <img
                   src={selectedNepaliRecipe.strMealThumb}
                   alt={selectedNepaliRecipe.strMeal}
-                  className="w-full h-64 object-cover rounded-lg mb-4"
+                  className="w-full h-72 object-cover rounded-xl mb-6 shadow-md"
                 />
               )}
 
-              <div className="space-y-4">
-                <div className="flex gap-2">
-                  <span className="px-3 py-1 bg-green-100 text-green-700 text-sm font-semibold rounded-full">
+              <div className="space-y-6">
+                <div className="flex flex-wrap gap-2">
+                  <span className="px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-semibold rounded-full shadow-sm">
                     🇳🇵 Nepali Recipe
                   </span>
                   {selectedNepaliRecipe.strCategory && (
-                    <span className="px-3 py-1 bg-blue-100 text-blue-700 text-sm font-semibold rounded-full">
+                    <span className="px-4 py-2 bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 text-sm font-semibold rounded-full shadow-sm">
                       {selectedNepaliRecipe.strCategory}
                     </span>
                   )}
                   {selectedNepaliRecipe.strArea && (
-                    <span className="px-3 py-1 bg-purple-100 text-purple-700 text-sm font-semibold rounded-full">
+                    <span className="px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 text-sm font-semibold rounded-full shadow-sm">
                       {selectedNepaliRecipe.strArea}
                     </span>
                   )}
                 </div>
 
-                <div>
-                  <h3 className="font-semibold text-gray-700 mb-2">
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl">
+                  <h3 className="font-bold text-gray-800 mb-3 text-lg">
                     Ingredients
                   </h3>
-                  <ul className="list-disc list-inside space-y-1">
+                  <ul className="space-y-2">
                     {Array.from({ length: 20 }, (_, i) => i + 1).map((i) => {
                       const ingredient =
                         selectedNepaliRecipe[`strIngredient${i}`];
                       const measure = selectedNepaliRecipe[`strMeasure${i}`];
                       if (ingredient && ingredient.trim()) {
                         return (
-                          <li key={i} className="text-gray-600">
-                            {measure?.trim()} {ingredient.trim()}
+                          <li
+                            key={i}
+                            className="text-gray-700 flex items-start"
+                          >
+                            <span className="text-green-600 mr-2 mt-1">•</span>
+                            <span>
+                              <span className="font-medium">
+                                {measure?.trim()}
+                              </span>{" "}
+                              {ingredient.trim()}
+                            </span>
                           </li>
                         );
                       }
@@ -1180,27 +1242,50 @@ export default function AdminPanel() {
                     })}
                   </ul>
                 </div>
-
                 {selectedNepaliRecipe.strInstructions && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700 mb-2">
+                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-xl">
+                    <h3 className="font-bold text-gray-800 mb-3 text-lg">
                       Instructions
                     </h3>
-                    <p className="text-gray-600 whitespace-pre-line">
-                      {selectedNepaliRecipe.strInstructions}
-                    </p>
+                    <ol className="space-y-3">
+                      {selectedNepaliRecipe.strInstructions
+                        .split("\n")
+                        .filter((step: string) => step.trim())
+                        .map((step: string, i: number) => (
+                          <li
+                            key={i}
+                            className="text-gray-700 flex items-start"
+                          >
+                            <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3 flex-shrink-0 mt-0.5">
+                              {i + 1}
+                            </span>
+                            <span className="leading-relaxed">
+                              {step.trim()}
+                            </span>
+                          </li>
+                        ))}
+                    </ol>
                   </div>
                 )}
 
                 {selectedNepaliRecipe.strYoutube && (
-                  <div>
-                    <h3 className="font-semibold text-gray-700 mb-2">Video</h3>
+                  <div className="bg-gradient-to-r from-red-50 to-pink-50 p-5 rounded-xl">
+                    <h3 className="font-bold text-gray-800 mb-3 text-lg">
+                      Video Tutorial
+                    </h3>
                     <a
                       href={selectedNepaliRecipe.strYoutube}
                       target="_blank"
                       rel="noopener noreferrer"
-                      className="text-blue-600 hover:underline"
+                      className="inline-flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                     >
+                      <svg
+                        className="w-5 h-5"
+                        fill="currentColor"
+                        viewBox="0 0 24 24"
+                      >
+                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
+                      </svg>
                       Watch on YouTube
                     </a>
                   </div>
