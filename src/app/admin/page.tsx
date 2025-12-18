@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "../../lib/supabaseClient";
 import {
   Shield,
@@ -39,12 +39,17 @@ interface Recipe {
   cook_time_minutes: number;
   servings: number;
   difficulty_level: string;
-  ingredients: string[];
-  instructions: string[];
+  ingredients: string[] | RecipeItem[];
+  instructions: string[] | RecipeItem[];
   is_approved: boolean;
   created_at: string;
   cuisine: string;
   users: RecipeUser;
+}
+
+interface RecipeItem {
+  item: string;
+  order: number;
 }
 
 interface NepaliRecipe {
@@ -113,116 +118,6 @@ export default function AdminPanel() {
       };
     }
   }, [selectedRecipe, selectedNepaliRecipe]);
-  useEffect(() => {
-    console.log("🚀 Admin Panel Component Mounted");
-    console.log("Initial check for logged in user...");
-    checkUser();
-  }, []);
-
-  useEffect(() => {
-    console.log("\n🔄 useEffect triggered - activeTab or statusFilter changed");
-    console.log("User logged in:", !!user);
-    console.log("Active tab:", activeTab);
-    console.log("Status filter:", statusFilter);
-
-    if (user) {
-      if (activeTab === "recipes") {
-        console.log("→ Fetching recipes...");
-        fetchRecipes();
-      }
-      if (activeTab === "users") {
-        console.log("→ Fetching users...");
-        fetchUsers();
-      }
-    } else {
-      console.log("⚠️ No user logged in, skipping fetch");
-    }
-  }, [user, activeTab, statusFilter]);
-
-  useEffect(() => {
-    if (user) {
-      if (activeTab === "recipes") {
-        fetchRecipes();
-      } else if (activeTab === "users") {
-        fetchUsers();
-      } else if (activeTab === "nepali") {
-        // ADD THIS
-        fetchNepaliRecipes();
-      }
-    }
-  }, [user, activeTab, statusFilter]);
-  // Real-time subscription
-  useEffect(() => {
-    if (!user || activeTab !== "recipes") {
-      console.log("Real-time subscription not active (no user or wrong tab)");
-      return;
-    }
-
-    console.log("🔴 Setting up real-time subscription for recipe changes...");
-
-    const channel = supabase
-      .channel("recipe-changes")
-      .on(
-        "postgres_changes",
-        {
-          event: "*",
-          schema: "public",
-          table: "recipes",
-        },
-        (payload) => {
-          console.log("\n🔥 REAL-TIME UPDATE DETECTED!");
-          console.log("Event type:", payload.eventType);
-          console.log("Payload:", payload);
-          console.log("New recipe data:", payload.new);
-          console.log("Old recipe data:", payload.old);
-          console.log("→ Refetching recipes...");
-          fetchRecipes();
-        }
-      )
-      .subscribe((status) => {
-        console.log("Subscription status:", status);
-      });
-
-    return () => {
-      console.log("🔴 Cleaning up real-time subscription");
-      supabase.removeChannel(channel);
-    };
-  }, [user, activeTab, statusFilter]);
-
-  // Log filtered recipes
-  useEffect(() => {
-    console.log("\n🔍 Filtering recipes");
-    console.log("Total recipes:", recipes.length);
-    console.log("Search term:", searchTerm);
-    const filtered = recipes.filter(
-      (r) =>
-        r.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.users?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        r.users?.username?.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-    console.log("Filtered results:", filtered.length);
-  }, [recipes, searchTerm]);
-
-  const checkUser = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const isAdmin = await checkAdminStatus(user.id);
-        if (isAdmin) {
-          setUser(user);
-        } else {
-          setError("Access denied. Admin privileges required.");
-          await supabase.auth.signOut();
-        }
-      }
-    } catch (err: unknown) {
-      console.error("Error checking user:", err);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const checkAdminStatus = async (userId: string) => {
     try {
@@ -241,47 +136,28 @@ export default function AdminPanel() {
     }
   };
 
-  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    setError("");
-    setLoading(true);
-
+  const checkUser = useCallback(async () => {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      if (error) throw error;
-
-      const isAdmin = await checkAdminStatus(data.user.id);
-      if (!isAdmin) {
-        await supabase.auth.signOut();
-        throw new Error("Access denied. Admin privileges required.");
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+      if (user) {
+        const isAdmin = await checkAdminStatus(user.id);
+        if (isAdmin) {
+          setUser(user);
+        } else {
+          setError("Access denied. Admin privileges required.");
+          await supabase.auth.signOut();
+        }
       }
-
-      setUser(data.user);
     } catch (err: unknown) {
-      setError(err instanceof Error ? err.message : "An error occurred");
+      console.error("Error checking user:", err);
     } finally {
       setLoading(false);
     }
-  };
-  const handleLogout = async () => {
-    setIsLoggingOut(true);
-    try {
-      await supabase.auth.signOut();
-      router.push("/");
-    } catch (error) {
-      console.error("Logout error:", error);
-      alert("Failed to logout. Please try again.");
-    } finally {
-      setIsLoggingOut(false);
-      setShowLogoutModal(false);
-    }
-  };
+  }, []);
 
-  const fetchRecipes = async () => {
+  const fetchRecipes = useCallback(async () => {
     console.log("\n=== FETCH RECIPES START ===");
     console.log("Current statusFilter:", statusFilter);
     console.log("Current activeTab:", activeTab);
@@ -354,9 +230,9 @@ export default function AdminPanel() {
       setFetchingRecipes(false);
       console.log("=== FETCH RECIPES END ===\n");
     }
-  };
+  }, [statusFilter, activeTab, user?.email]);
 
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("users")
@@ -368,8 +244,9 @@ export default function AdminPanel() {
     } catch (err: unknown) {
       console.error("Error fetching users:", err);
     }
-  };
-  const fetchNepaliRecipes = async () => {
+  }, []);
+
+  const fetchNepaliRecipes = useCallback(async () => {
     try {
       setFetchingNepali(true);
       console.log("🇳🇵 Fetching Nepali recipes from GitHub...");
@@ -387,6 +264,143 @@ export default function AdminPanel() {
       alert("Failed to load Nepali recipes from GitHub");
     } finally {
       setFetchingNepali(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    console.log("🚀 Admin Panel Component Mounted");
+    console.log("Initial check for logged in user...");
+    checkUser();
+  }, [checkUser]);
+
+  useEffect(() => {
+    console.log("\n🔄 useEffect triggered - activeTab or statusFilter changed");
+    console.log("User logged in:", !!user);
+    console.log("Active tab:", activeTab);
+    console.log("Status filter:", statusFilter);
+
+    if (user) {
+      if (activeTab === "recipes") {
+        console.log("→ Fetching recipes...");
+        fetchRecipes();
+      }
+      if (activeTab === "users") {
+        console.log("→ Fetching users...");
+        fetchUsers();
+      }
+    } else {
+      console.log("⚠️ No user logged in, skipping fetch");
+    }
+  }, [user, activeTab, statusFilter, fetchRecipes, fetchUsers]);
+
+  useEffect(() => {
+    if (user) {
+      if (activeTab === "recipes") {
+        fetchRecipes();
+      } else if (activeTab === "users") {
+        fetchUsers();
+      } else if (activeTab === "nepali") {
+        // ADD THIS
+        fetchNepaliRecipes();
+      }
+    }
+  }, [
+    user,
+    activeTab,
+    statusFilter,
+    fetchRecipes,
+    fetchUsers,
+    fetchNepaliRecipes,
+  ]);
+  // Real-time subscription
+  useEffect(() => {
+    if (!user || activeTab !== "recipes") {
+      console.log("Real-time subscription not active (no user or wrong tab)");
+      return;
+    }
+
+    console.log("🔴 Setting up real-time subscription for recipe changes...");
+
+    const channel = supabase
+      .channel("recipe-changes")
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "recipes",
+        },
+        (payload) => {
+          console.log("\n🔥 REAL-TIME UPDATE DETECTED!");
+          console.log("Event type:", payload.eventType);
+          console.log("Payload:", payload);
+          console.log("New recipe data:", payload.new);
+          console.log("Old recipe data:", payload.old);
+          console.log("→ Refetching recipes...");
+          fetchRecipes();
+        }
+      )
+      .subscribe((status) => {
+        console.log("Subscription status:", status);
+      });
+
+    return () => {
+      console.log("🔴 Cleaning up real-time subscription");
+      supabase.removeChannel(channel);
+    };
+  }, [user, activeTab, statusFilter, fetchRecipes]);
+
+  // Log filtered recipes
+  useEffect(() => {
+    console.log("\n🔍 Filtering recipes");
+    console.log("Total recipes:", recipes.length);
+    console.log("Search term:", searchTerm);
+    const filtered = recipes.filter(
+      (r) =>
+        r.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.users?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        r.users?.username?.toLowerCase().includes(searchTerm.toLowerCase())
+    );
+    console.log("Filtered results:", filtered.length);
+  }, [recipes, searchTerm]);
+
+  const handleLogin = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    setError("");
+    setLoading(true);
+
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      if (error) throw error;
+
+      const isAdmin = await checkAdminStatus(data.user.id);
+      if (!isAdmin) {
+        await supabase.auth.signOut();
+        throw new Error("Access denied. Admin privileges required.");
+      }
+
+      setUser(data.user);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "An error occurred");
+    } finally {
+      setLoading(false);
+    }
+  };
+  const handleLogout = async () => {
+    setIsLoggingOut(true);
+    try {
+      await supabase.auth.signOut();
+      router.push("/");
+    } catch (error) {
+      console.error("Logout error:", error);
+      alert("Failed to logout. Please try again.");
+    } finally {
+      setIsLoggingOut(false);
+      setShowLogoutModal(false);
     }
   };
 
@@ -1089,20 +1103,28 @@ export default function AdminPanel() {
                     </h3>
                     <ul className="space-y-2">
                       {selectedRecipe.ingredients
-                        .sort(
-                          (a: any, b: any) => (a.order || 0) - (b.order || 0)
-                        )
-                        .map((ing: any, i) => (
-                          <li
-                            key={i}
-                            className="text-gray-700 flex items-start"
-                          >
-                            <span className="text-green-600 mr-2 mt-1">•</span>
-                            <span>
-                              {typeof ing === "string" ? ing : ing.item}
-                            </span>
-                          </li>
-                        ))}
+                        .sort((a, b) => {
+                          if (typeof a === "string" || typeof b === "string")
+                            return 0;
+                          const aOrder = (a as RecipeItem).order || 0;
+                          const bOrder = (b as RecipeItem).order || 0;
+                          return aOrder - bOrder;
+                        })
+                        .map((item, i) => {
+                          const text =
+                            typeof item === "string" ? item : item.item;
+                          return (
+                            <li
+                              key={i}
+                              className="text-gray-700 flex items-start"
+                            >
+                              <span className="text-green-600 mr-2 mt-1">
+                                •
+                              </span>
+                              <span>{text}</span>
+                            </li>
+                          );
+                        })}
                     </ul>
                   </div>
                 )}
@@ -1114,22 +1136,28 @@ export default function AdminPanel() {
                     </h3>
                     <ol className="space-y-3">
                       {selectedRecipe.instructions
-                        .sort(
-                          (a: any, b: any) => (a.order || 0) - (b.order || 0)
-                        )
-                        .map((inst: any, i) => (
-                          <li
-                            key={i}
-                            className="text-gray-700 flex items-start"
-                          >
-                            <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3 flex-shrink-0 mt-0.5">
-                              {i + 1}
-                            </span>
-                            <span className="leading-relaxed">
-                              {typeof inst === "string" ? inst : inst.item}
-                            </span>
-                          </li>
-                        ))}
+                        .sort((a, b) => {
+                          if (typeof a === "string" || typeof b === "string")
+                            return 0;
+                          const aOrder = (a as RecipeItem).order || 0;
+                          const bOrder = (b as RecipeItem).order || 0;
+                          return aOrder - bOrder;
+                        })
+                        .map((item, i) => {
+                          const text =
+                            typeof item === "string" ? item : item.item;
+                          return (
+                            <li
+                              key={i}
+                              className="text-gray-700 flex items-start"
+                            >
+                              <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3 flex-shrink-0 mt-0.5">
+                                {i + 1}
+                              </span>
+                              <span className="leading-relaxed">{text}</span>
+                            </li>
+                          );
+                        })}
                     </ol>
                   </div>
                 )}
