@@ -1,9 +1,9 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { useSearchParams } from "next/navigation";
 
-export default function VerifyPage() {
+function VerifyContent() {
   const [message, setMessage] = useState("Verifying...");
   const searchParams = useSearchParams(); // hook to safely access query params
 
@@ -61,4 +61,12 @@ export default function VerifyPage() {
   }, [searchParams]);
 
   return <h1>{message}</h1>;
+}
+
+export default function VerifyPage() {
+  return (
+    <Suspense fallback={<h1>Loading...</h1>}>
+      <VerifyContent />
+    </Suspense>
+  );
 }
