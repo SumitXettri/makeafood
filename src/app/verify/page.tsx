@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
+import Link from "next/link";
 
 function VerifyContent() {
   const [message, setMessage] = useState("Verifying your email...");
@@ -102,12 +103,12 @@ function VerifyContent() {
           {!isLoading && (
             <div className="space-y-3">
               {isSuccess && (
-                <a
+                <Link
                   href="/login"
                   className="block w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 text-center"
                 >
                   Go to Login
-                </a>
+                </Link>
               )}
               <a
                 href="/"
