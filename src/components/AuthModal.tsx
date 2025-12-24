@@ -155,7 +155,7 @@ export default function AuthModal({
     const res = await fetch("/api/send-verification", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ userId: user.id, email }),
+      body: JSON.stringify({ userId: user.id, email, username }),
     });
 
     if (!res.ok) {
