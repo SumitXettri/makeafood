@@ -1,7 +1,12 @@
 import { supabase } from "@/lib/supabaseClient";
 
-export default async function VerifyPage({ searchParams }: any) {
-  const token = searchParams.token;
+export default async function VerifyPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ [key: string]: string | string[] | undefined }>;
+}) {
+  const params = await searchParams;
+  const token = params.token as string;
 
   if (!token) return <p>Invalid verification link</p>;
 
