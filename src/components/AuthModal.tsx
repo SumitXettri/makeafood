@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import { X, CheckCircle } from "lucide-react";
+import { useRouter } from "next/navigation";
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -23,6 +24,7 @@ export default function AuthModal({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+  const router = useRouter();
 
   useEffect(() => {
     setMode(initialMode);
@@ -108,6 +110,7 @@ export default function AuthModal({
 
     setLoading(false);
     onClose();
+    router.push("/");
     window.location.reload();
   };
 
@@ -171,7 +174,7 @@ export default function AuthModal({
     }
 
     setLoading(false);
-    setMode("login");
+
     setError(null);
     setPassword("");
     setConfirmPassword("");
