@@ -110,7 +110,7 @@ function VerifyContent() {
                   Go to Login
                 </Link>
               )}
-              <a
+              <Link
                 href="/"
                 className={`block w-full ${
                   isSuccess
@@ -119,7 +119,7 @@ function VerifyContent() {
                 } font-semibold py-3 px-6 rounded-lg transition duration-200 text-center`}
               >
                 Go to Signup
-              </a>
+              </Link>
             </div>
           )}
         </div>
@@ -128,12 +128,12 @@ function VerifyContent() {
         <div className="text-center mt-6">
           <p className="text-sm text-gray-500">
             Need help?{" "}
-            <a
+            <Link
               href="/contact"
               className="text-orange-600 hover:text-orange-700 font-medium"
             >
               Contact Support
-            </a>
+            </Link>
           </p>
         </div>
       </div>
