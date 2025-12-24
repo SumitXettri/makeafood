@@ -93,6 +93,19 @@ export default function AuthModal({
       return;
     }
 
+    const { data: profile } = await supabase
+      .from("users")
+      .select("is_verified")
+      .eq("id", data.user.id)
+      .single();
+
+    if (!profile?.is_verified) {
+      await supabase.auth.signOut();
+      setError("Please verify your email before logging in.");
+      setLoading(false);
+      return;
+    }
+
     setLoading(false);
     onClose();
     window.location.reload();
@@ -132,15 +145,24 @@ export default function AuthModal({
       return;
     }
 
-    const { error: insertError } = await supabase.from("users").insert([
-      {
-        id: user.id,
+    const { error: insertError } = await supabase
+      .from("users")
+      .update({
         username,
-        email,
-        avatar_url: null,
-        bio: null,
-      },
-    ]);
+      })
+      .eq("id", user.id);
+
+    const res = await fetch("/api/send-verification", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ userId: user.id, email }),
+    });
+
+    if (!res.ok) {
+      setError("Account created, but failed to send verification email.");
+      setLoading(false);
+      return;
+    }
 
     if (insertError) {
       setError(insertError.message);
@@ -153,7 +175,9 @@ export default function AuthModal({
     setError(null);
     setPassword("");
     setConfirmPassword("");
-    setSuccessMessage("Account created successfully! Please log in.");
+    setSuccessMessage(
+      "Account created! Please check your email to verify your account."
+    );
 
     setTimeout(() => {
       setSuccessMessage(null);
