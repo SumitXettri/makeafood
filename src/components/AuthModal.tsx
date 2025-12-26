@@ -174,7 +174,7 @@ export default function AuthModal({
     }
 
     setLoading(false);
-
+    setMode("login");
     setError(null);
     setPassword("");
     setConfirmPassword("");

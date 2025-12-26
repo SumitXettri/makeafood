@@ -2,6 +2,7 @@
 import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
 
 function VerifyContent() {
   const [message, setMessage] = useState("Verifying your email...");
@@ -15,6 +16,7 @@ function VerifyContent() {
       const username = searchParams.get("username");
       const email = searchParams.get("email");
 
+      console.log(userId, username, email);
       if (!userId || !email || !username) {
         setMessage("Invalid verification link.");
         setIsSuccess(false);
@@ -23,10 +25,49 @@ function VerifyContent() {
       }
 
       try {
-        // Simulating the verification process
-        await new Promise((resolve) => setTimeout(resolve, 1500));
+        // Check if user already exists in public.users
+        const { data: existingUser } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", userId)
+          .single();
 
-        // In your actual implementation, replace this with your Supabase logic
+        if (!existingUser) {
+          // Insert into public.users
+          const { error: insertError } = await supabase.from("users").insert([
+            {
+              id: userId,
+              username,
+              email,
+              is_verified: true,
+            },
+          ]);
+
+          if (insertError) {
+            console.error("Insert error:", insertError);
+            setMessage(
+              "Failed to create user profile. Please try again later."
+            );
+            setIsSuccess(false);
+            setIsLoading(false);
+            return;
+          }
+        } else {
+          // If exists, just mark verified
+          const { error: updateError } = await supabase
+            .from("users")
+            .update({ is_verified: true })
+            .eq("id", userId);
+
+          if (updateError) {
+            console.error("Update error:", updateError);
+            setMessage("Failed to verify account. Please try again later.");
+            setIsSuccess(false);
+            setIsLoading(false);
+            return;
+          }
+        }
+
         setMessage("Email verified successfully!");
         setIsSuccess(true);
         setIsLoading(false);
