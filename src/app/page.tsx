@@ -164,12 +164,13 @@ export default function HomePage() {
     "Stir Fry",
   ];
 
-  const handleSearch = (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
+  const handleSearch = (e?: React.FormEvent<HTMLFormElement>) => {
+    if (e) e.preventDefault();
     // The element that triggered the form submission (could be the search button,
     // a trending button, or pressing Enter inside the input)
-    const submitter = (e.nativeEvent as SubmitEvent)
-      .submitter as HTMLElement | null;
+    const submitter = e
+      ? ((e.nativeEvent as SubmitEvent).submitter as HTMLElement | null)
+      : null;
     const term = submitter?.getAttribute("data-term") ?? null;
 
     const q = term ?? searchQuery.trim();
@@ -214,23 +215,26 @@ export default function HomePage() {
               placeholder="Search by ingredients, cuisine, or dish name..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full px-6 py-5 rounded-2xl border-2 border-orange-200 focus:border-orange-400 focus:outline-none text-lg shadow-lg"
+              className="w-full px-6 py-5 pr-20 rounded-2xl border-2 border-orange-200 focus:border-orange-400 focus:outline-none text-lg shadow-lg"
             />
             <button
               type="submit"
               aria-label="Search"
-              className="absolute right-3 top-1/2 -translate-y-1/2 px-6 py-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
+              className="absolute right-2 top-10 -translate-y-1/2 p-3 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg transition-all"
             >
               <Search size={20} />
             </button>
 
-            <div className="flex flex-wrap justify-center gap-2 mt-4">
+            <div className="flex flex-wrap items-center justify-center gap-2 mt-4">
               <span className="text-sm text-gray-500">Trending:</span>
               {trendingSearches.map((term) => (
                 <button
                   key={term}
-                  type="submit"
-                  data-term={term}
+                  type="button"
+                  onClick={() => {
+                    setSearchQuery(term);
+                    handleSearch();
+                  }}
                   className="text-sm px-3 py-1 bg-white rounded-full border border-orange-200 text-orange-700 hover:bg-orange-50 transition"
                 >
                   {term}

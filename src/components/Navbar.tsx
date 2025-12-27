@@ -107,52 +107,61 @@ export default function Navbar() {
   return (
     <>
       <nav className="bg-white/80 backdrop-blur-md border-b border-orange-100 sticky top-0 z-50 shadow-sm rounded-2xl">
-        <div className="max-w-7xl mx-auto px-6 py-4">
-          <div className="flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4">
+          <div className="flex items-center justify-between gap-4">
             {/* Logo */}
             <div
-              className="flex items-center gap-2 cursor-pointer"
+              className="flex items-center gap-2 cursor-pointer flex-shrink-0"
               onClick={() => router.push("/")}
             >
-              <div className="w-10 h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center hover:scale-105 transition-transform">
-                <Image src="/logo.svg" alt="Logo" width={34} height={34} />
+              <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center hover:scale-105 transition-transform">
+                <Image
+                  src="/logo.svg"
+                  alt="Logo"
+                  width={28}
+                  height={28}
+                  className="sm:w-[34px] sm:h-[34px]"
+                />
               </div>
-              <span className="text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
+              <span className="text-xl sm:text-2xl font-bold bg-gradient-to-r from-orange-600 to-red-600 bg-clip-text text-transparent">
                 MakeAfood
               </span>
             </div>
 
-            {/* Desktop Navigation */}
-            <div className="hidden md:flex items-center gap-6">
+            {/* Tablet/Desktop Navigation Links */}
+            <div className="hidden md:flex items-center gap-3 lg:gap-6">
               <a
                 href="/recipes"
-                className="text-gray-700 hover:text-orange-600 transition font-medium flex items-center gap-2"
+                className="text-gray-700 hover:text-orange-600 transition font-medium flex items-center gap-2 text-sm lg:text-base"
               >
-                <MenuIcon size={18} /> Recipes
+                <MenuIcon size={18} />
+                <span className="hidden lg:inline">Recipes</span>
               </a>
               <a
                 href="/ingredient_search"
-                className="text-gray-700 hover:text-orange-600 transition font-medium flex items-center gap-2"
+                className="text-gray-700 hover:text-orange-600 transition font-medium flex items-center gap-2 text-sm lg:text-base"
               >
-                <Search size={18} /> AI Search
+                <Search size={18} />
+                <span className="hidden lg:inline">AI Search</span>
               </a>
               <a
                 href="/community"
-                className="text-gray-700 hover:text-orange-600 transition font-medium flex items-center gap-2"
+                className="text-gray-700 hover:text-orange-600 transition font-medium flex items-center gap-2 text-sm lg:text-base"
               >
-                <TrendingUp size={18} /> Community
+                <TrendingUp size={18} />
+                <span className="hidden lg:inline">Community</span>
               </a>
             </div>
 
             {/* Desktop Search Bar */}
             <form
               onSubmit={handleSearchSubmit}
-              className="relative hidden lg:flex items-center"
+              className="relative hidden xl:flex items-center"
             >
               <input
                 type="text"
                 placeholder="Search recipes..."
-                className="w-64 px-4 py-2 pr-10 rounded-xl border border-orange-200 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
+                className="w-56 xl:w-64 px-4 py-2 pr-10 rounded-xl border border-orange-200 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all text-sm"
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
               />
@@ -164,19 +173,19 @@ export default function Navbar() {
               </button>
             </form>
 
-            {/* Desktop Auth Buttons */}
-            <div className="hidden md:flex items-center gap-3">
+            {/* Tablet/Desktop Auth Buttons */}
+            <div className="hidden md:flex items-center gap-2 lg:gap-3">
               {!username ? (
                 <>
                   <button
                     onClick={openLoginModal}
-                    className="px-5 py-2 text-gray-700 hover:text-orange-600 font-medium transition-colors"
+                    className="px-3 lg:px-5 py-2 text-gray-700 hover:text-orange-600 font-medium transition-colors text-sm lg:text-base"
                   >
                     Login
                   </button>
                   <button
                     onClick={openSignupModal}
-                    className="px-5 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all"
+                    className="px-3 lg:px-5 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all text-sm lg:text-base whitespace-nowrap"
                   >
                     Sign Up
                   </button>
@@ -185,26 +194,28 @@ export default function Navbar() {
                 <>
                   <button
                     onClick={() => router.push("/addrecipe")}
-                    className="px-5 py-2 bg-gradient-to-r cursor-pointer from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-2"
+                    className="px-3 lg:px-5 py-2 bg-gradient-to-r cursor-pointer from-orange-500 to-red-500 text-white rounded-xl font-semibold hover:shadow-lg hover:scale-105 transition-all flex items-center gap-1.5 lg:gap-2 text-sm lg:text-base whitespace-nowrap"
                   >
-                    <Plus size={18} /> Share Recipe
+                    <Plus size={16} className="lg:w-[18px] lg:h-[18px]" />
+                    <span className="hidden lg:inline">Share Recipe</span>
+                    <span className="lg:hidden">Share</span>
                   </button>
-                  <div className="flex items-center gap-3">
-                    <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-xl font-medium">
-                      <Link
-                        href="/dashboard"
-                        className="flex items-center gap-2"
-                      >
-                        <User size={16} />
-                        <span>{username}</span>
-                      </Link>
-                    </div>
+                  <div className="flex items-center gap-2 lg:gap-3">
+                    <Link
+                      href="/dashboard"
+                      className="flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 bg-orange-100 text-orange-700 rounded-xl font-medium hover:bg-orange-200 transition-colors text-sm lg:text-base"
+                    >
+                      <User size={14} className="lg:w-4 lg:h-4" />
+                      <span className="max-w-[80px] lg:max-w-none truncate">
+                        {username}
+                      </span>
+                    </Link>
                     <button
                       onClick={openLogoutModal}
                       className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
                       title="Logout"
                     >
-                      <LogOut size={20} />
+                      <LogOut size={18} className="lg:w-5 lg:h-5" />
                     </button>
                   </div>
                 </>
@@ -216,35 +227,46 @@ export default function Navbar() {
               <button
                 onClick={() => setSearchOpen(!searchOpen)}
                 className="p-2 text-gray-700 hover:text-orange-600 transition"
+                aria-label="Toggle search"
               >
                 <Search size={20} />
               </button>
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="p-2 text-gray-700 hover:text-orange-600 transition"
+                aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? <X size={24} /> : <MenuIcon size={24} />}
               </button>
             </div>
+
+            {/* Tablet Search Button (between md and xl) */}
+            <button
+              onClick={() => setSearchOpen(!searchOpen)}
+              className="hidden md:flex xl:hidden p-2 text-gray-700 hover:text-orange-600 transition rounded-lg hover:bg-orange-50"
+              aria-label="Toggle search"
+            >
+              <Search size={20} />
+            </button>
           </div>
 
-          {/* Mobile Search Bar */}
+          {/* Mobile/Tablet Search Bar */}
           {searchOpen && (
             <form
               onSubmit={handleSearchSubmit}
-              className="lg:hidden mt-4 animate-in slide-in-from-top"
+              className="xl:hidden mt-4 animate-in slide-in-from-top"
             >
               <div className="relative">
                 <input
                   type="text"
                   placeholder="Search recipes..."
-                  className="w-full px-4 py-3 pr-12 rounded-xl border-2 border-orange-200 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all"
+                  className="w-full px-4 py-2.5 sm:py-3 pr-20 sm:pr-24 rounded-xl border-2 border-orange-200 focus:border-orange-400 focus:outline-none focus:ring-2 focus:ring-orange-100 transition-all text-sm sm:text-base"
                   value={query}
                   onChange={(e) => setQuery(e.target.value)}
                 />
                 <button
                   type="submit"
-                  className="absolute right-3 top-1/2 -translate-y-1/2 px-4 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all"
+                  className="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 px-3 sm:px-4 py-1.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold hover:shadow-lg transition-all text-sm"
                 >
                   Go
                 </button>
@@ -257,21 +279,21 @@ export default function Navbar() {
             <div className="md:hidden mt-4 py-4 border-t border-orange-100 space-y-3 animate-in slide-in-from-top">
               <a
                 href="/recipes"
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
+                className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <MenuIcon size={18} /> Recipes
               </a>
               <a
                 href="/ingredient_search"
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
+                className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <Search size={18} /> AI Search
               </a>
               <a
                 href="/community"
-                className="flex items-center gap-2 px-4 py-2 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
+                className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
                 onClick={() => setMobileMenuOpen(false)}
               >
                 <TrendingUp size={18} /> Community
@@ -281,35 +303,39 @@ export default function Navbar() {
                 <div className="flex flex-col gap-2 pt-3 border-t border-orange-100">
                   <button
                     onClick={openLoginModal}
-                    className="px-4 py-2 text-center text-gray-700 border border-orange-200 rounded-lg hover:bg-orange-50 font-medium transition"
+                    className="px-4 py-2.5 text-center text-gray-700 border border-orange-200 rounded-lg hover:bg-orange-50 font-medium transition"
                   >
                     Login
                   </button>
                   <button
                     onClick={openSignupModal}
-                    className="px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold hover:shadow-lg transition text-center"
+                    className="px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold hover:shadow-lg transition text-center"
                   >
                     Sign Up
                   </button>
                 </div>
               ) : (
                 <div className="space-y-2 pt-3 border-t border-orange-100">
-                  <div className="flex items-center gap-2 px-4 py-2 bg-orange-100 text-orange-700 rounded-lg font-medium">
+                  <Link
+                    href="/dashboard"
+                    className="flex items-center gap-2 px-4 py-2.5 bg-orange-100 text-orange-700 rounded-lg font-medium hover:bg-orange-200 transition"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
                     <User size={16} />
                     <span>{username}</span>
-                  </div>
+                  </Link>
                   <button
                     onClick={() => {
                       router.push("/addrecipe");
                       setMobileMenuOpen(false);
                     }}
-                    className="w-full px-4 py-2 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
+                    className="w-full px-4 py-2.5 bg-gradient-to-r from-orange-500 to-red-500 text-white rounded-lg font-semibold hover:shadow-lg transition flex items-center justify-center gap-2"
                   >
                     <Plus size={18} /> Share Recipe
                   </button>
                   <button
                     onClick={openLogoutModal}
-                    className="w-full px-4 py-2 text-red-600 border border-red-200 hover:bg-red-50 rounded-lg font-medium transition flex items-center justify-center gap-2"
+                    className="w-full px-4 py-2.5 text-red-600 border border-red-200 hover:bg-red-50 rounded-lg font-medium transition flex items-center justify-center gap-2"
                   >
                     <LogOut size={18} /> Logout
                   </button>
