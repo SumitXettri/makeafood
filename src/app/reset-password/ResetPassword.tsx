@@ -1,6 +1,6 @@
 "use client";
 import { useSearchParams } from "next/navigation";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Eye, EyeOff, Lock, ArrowLeft } from "lucide-react";
 import Link from "next/link";
 
@@ -11,6 +11,7 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [floatingFoods, setFloatingFoods] = useState<any[]>([]);
 
   // Food emojis for background decoration
   const foodEmojis = [
@@ -106,16 +107,18 @@ export default function ResetPassword() {
     "🍴",
   ];
 
-  const [floatingFoods] = useState(() =>
-    Array.from({ length: 30 }, (_, i) => ({
+  useEffect(() => {
+    const foods = Array.from({ length: 30 }, () => ({
       emoji: foodEmojis[Math.floor(Math.random() * foodEmojis.length)],
       left: Math.random() * 100,
       top: Math.random() * 100,
       size: 1.5 + Math.random() * 3.5,
       delay: Math.random() * 8,
       duration: 8 + Math.random() * 15,
-    }))
-  );
+    }));
+
+    setFloatingFoods(foods);
+  }, []);
 
   async function handleReset() {
     if (!token) {
@@ -151,6 +154,8 @@ export default function ResetPassword() {
     } else {
       alert("Password reset successful");
     }
+
+    window.location.href = "/login";
   }
 
   const passwordsMatch = password === confirmPassword && confirmPassword !== "";
