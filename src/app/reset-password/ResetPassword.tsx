@@ -1,7 +1,14 @@
 "use client";
 import { useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
-import { Eye, EyeOff, Lock, ArrowLeft } from "lucide-react";
+import {
+  Eye,
+  EyeOff,
+  Lock,
+  ArrowLeft,
+  CheckCircle,
+  XCircle,
+} from "lucide-react";
 import Link from "next/link";
 
 export default function ResetPassword() {
@@ -11,7 +18,19 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [floatingFoods, setFloatingFoods] = useState<any[]>([]);
+  interface FloatingFood {
+    emoji: string;
+    left: number;
+    top: number;
+    size: number;
+    delay: number;
+    duration: number;
+  }
+  const [floatingFoods, setFloatingFoods] = useState<FloatingFood[]>([]);
+  const [message, setMessage] = useState<{
+    type: "success" | "error";
+    text: string;
+  } | null>(null);
 
   // Food emojis for background decoration
   const foodEmojis = [
@@ -122,21 +141,25 @@ export default function ResetPassword() {
 
   async function handleReset() {
     if (!token) {
-      alert("Invalid or missing reset token");
+      setMessage({ type: "error", text: "Invalid or missing reset token" });
       return;
     }
 
     if (password.length < 6) {
-      alert("Password must be at least 6 characters");
+      setMessage({
+        type: "error",
+        text: "Password must be at least 6 characters",
+      });
       return;
     }
 
     if (password !== confirmPassword) {
-      alert("Passwords do not match");
+      setMessage({ type: "error", text: "Passwords do not match" });
       return;
     }
 
     setLoading(true);
+    setMessage(null);
 
     const res = await fetch("/api/auth/reset-password", {
       method: "POST",
@@ -150,12 +173,19 @@ export default function ResetPassword() {
     setLoading(false);
 
     if (!res.ok) {
-      alert(data.error || "Reset failed");
+      setMessage({
+        type: "error",
+        text: data.error || "Reset failed. Please try again.",
+      });
     } else {
-      alert("Password reset successful");
+      setMessage({
+        type: "success",
+        text: "Password reset successful! Redirecting to login...",
+      });
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 2000);
     }
-
-    window.location.href = "/login";
   }
 
   const passwordsMatch = password === confirmPassword && confirmPassword !== "";
@@ -188,7 +218,43 @@ export default function ResetPassword() {
             transform: translateY(-20px) rotate(10deg);
           }
         }
+        @keyframes slideIn {
+          from {
+            transform: translateY(-100%);
+            opacity: 0;
+          }
+          to {
+            transform: translateY(0);
+            opacity: 1;
+          }
+        }
       `}</style>
+
+      {/* Toast Message */}
+      {message && (
+        <div className="fixed top-4 right-4 z-50 animate-[slideIn_0.3s_ease-out]">
+          <div
+            className={`flex items-center gap-3 px-6 py-4 rounded-xl shadow-lg ${
+              message.type === "success"
+                ? "bg-green-50 border-2 border-green-200"
+                : "bg-red-50 border-2 border-red-200"
+            }`}
+          >
+            {message.type === "success" ? (
+              <CheckCircle className="text-green-600" size={24} />
+            ) : (
+              <XCircle className="text-red-600" size={24} />
+            )}
+            <p
+              className={`font-medium ${
+                message.type === "success" ? "text-green-800" : "text-red-800"
+              }`}
+            >
+              {message.text}
+            </p>
+          </div>
+        </div>
+      )}
 
       <div className="w-full max-w-md relative z-10">
         {/* Back Navigation */}
@@ -198,7 +264,6 @@ export default function ResetPassword() {
         >
           <ArrowLeft size={20} />
           <Link href="/">
-            {" "}
             <span className="font-medium">Back to Home</span>
           </Link>
         </button>
