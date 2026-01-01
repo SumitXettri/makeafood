@@ -180,7 +180,7 @@ export default function ResetPassword() {
     } else {
       setMessage({
         type: "success",
-        text: "Password reset successful! Redirecting to login...",
+        text: "Password reset successful! Please log in with your new password.",
       });
       setTimeout(() => {
         window.location.href = "/?auth=login";

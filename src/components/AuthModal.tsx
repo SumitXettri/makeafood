@@ -130,6 +130,25 @@ export default function AuthModal({
     }
 
     setLoading(true);
+    // Check if username already exists
+    const { data: existingUser, error: usernameError } = await supabase
+      .from("users")
+      .select("id")
+      .eq("username", username)
+      .single();
+
+    if (existingUser) {
+      setError("Username already taken. Please choose another.");
+      setLoading(false);
+      return;
+    }
+
+    // Ignore "no rows" error (means username is free)
+    if (usernameError && usernameError.code !== "PGRST116") {
+      setError("Unable to check username availability. Please try again.");
+      setLoading(false);
+      return;
+    }
 
     const { data, error: signUpError } = await supabase.auth.signUp({
       email,
@@ -428,12 +447,6 @@ export default function AuthModal({
               {error && (
                 <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
                   <p className="text-red-600 text-sm">{error}</p>
-                </div>
-              )}
-
-              {successMessage && (
-                <div className="p-3 bg-green-50 border border-green-200 rounded-lg">
-                  <p className="text-green-700 text-sm">{successMessage}</p>
                 </div>
               )}
 
