@@ -137,7 +137,7 @@ export default function ResetPassword() {
     }));
 
     setFloatingFoods(foods);
-  }, []);
+  }, [foodEmojis]);
 
   async function handleReset() {
     if (!token) {
@@ -387,12 +387,12 @@ export default function ResetPassword() {
           <div className="mt-6 text-center">
             <p className="text-sm text-gray-600">
               Remember your password?{" "}
-              <a
+              <Link
                 href="/?auth=login"
                 className="text-orange-600 hover:text-orange-700 font-semibold transition-colors"
               >
                 Log in
-              </a>
+              </Link>
             </p>
           </div>
         </div>
