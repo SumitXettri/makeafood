@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import {
   Utensils,
   Search,
@@ -182,9 +182,11 @@ export default function HomePage() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
-      <div className="max-w-7xl mx-auto mb-6 pt-6">
-        <Navbar />
-      </div>
+      <Suspense fallback={<div>Loading Navbar...</div>}>
+        <div className="max-w-7xl mx-auto mb-6 pt-6">
+          <Navbar />
+        </div>
+      </Suspense>
 
       {/* Hero Section */}
       <main className="max-w-7xl mx-auto py-5">
