@@ -145,12 +145,13 @@ function VerifyContent() {
             <div className="space-y-3">
               {isSuccess && (
                 <Link
-                  href="/login"
+                  href="/?auth=login"
                   className="block w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 text-center"
                 >
                   Go to Login
                 </Link>
               )}
+
               <Link
                 href="/"
                 className={`block w-full ${

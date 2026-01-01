@@ -15,6 +15,7 @@ import {
 import Image from "next/image";
 import AuthModal from "./AuthModal";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 
 export default function Navbar() {
   const router = useRouter();
@@ -26,6 +27,19 @@ export default function Navbar() {
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const searchParams = useSearchParams();
+
+  useEffect(() => {
+    const auth = searchParams.get("auth");
+
+    if (auth === "login" || auth === "signup") {
+      setAuthMode(auth);
+      setIsAuthModalOpen(true);
+
+      // Optional but recommended: clean URL
+      router.replace("/", { scroll: false });
+    }
+  }, [searchParams, router]);
 
   // Fetch username from Supabase
   const fetchUsername = async () => {

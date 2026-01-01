@@ -183,7 +183,7 @@ export default function ResetPassword() {
         text: "Password reset successful! Redirecting to login...",
       });
       setTimeout(() => {
-        window.location.href = "/login";
+        window.location.href = "/?auth=login";
       }, 2000);
     }
   }
@@ -258,15 +258,13 @@ export default function ResetPassword() {
 
       <div className="w-full max-w-md relative z-10">
         {/* Back Navigation */}
-        <button
-          onClick={() => window.history.back()}
+        <Link
+          href="/?auth=login"
           className="flex items-center gap-2 text-orange-700 hover:text-orange-900 mb-6 transition-colors"
         >
           <ArrowLeft size={20} />
-          <Link href="/">
-            <span className="font-medium">Back to Home</span>
-          </Link>
-        </button>
+          <span className="font-medium">Back to Home</span>
+        </Link>
 
         {/* Card */}
         <div className="bg-orange-50 rounded-2xl shadow-xl p-8 border border-orange-200">
@@ -390,10 +388,10 @@ export default function ResetPassword() {
             <p className="text-sm text-gray-600">
               Remember your password?{" "}
               <a
-                href="/login"
+                href="/?auth=login"
                 className="text-orange-600 hover:text-orange-700 font-semibold transition-colors"
               >
-                Sign in
+                Log in
               </a>
             </p>
           </div>

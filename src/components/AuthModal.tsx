@@ -113,7 +113,6 @@ export default function AuthModal({
     setLoading(false);
     onClose();
     router.push("/");
-    window.location.reload();
   };
 
   const handleSignup = async (e: React.FormEvent) => {
