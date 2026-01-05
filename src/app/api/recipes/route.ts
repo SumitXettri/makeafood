@@ -1,7 +1,11 @@
-// app/api/recipes/route.ts
 import type { NextRequest } from "next/server";
 import { NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import {
+  fuzzySearchRecipes,
+  groupRecipesByMatchQuality,
+  getSuggestions,
+} from "@/lib/fuzzyRecipeSearch";
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -9,7 +13,8 @@ const supabase = createClient(
 );
 
 // 🇳🇵 GitHub URL for Nepali recipes JSON (use raw.githubusercontent.com)
-const NEPALI_RECIPES_URL = "https://raw.githubusercontent.com/SumitXettri/NepaliRecipe/main/recipes.json";
+const NEPALI_RECIPES_URL =
+  "https://raw.githubusercontent.com/SumitXettri/NepaliRecipe/main/recipes.json";
 
 // Interfaces...
 interface SpoonacularIngredient {
@@ -137,7 +142,7 @@ async function fetchNepaliRecipes(
 ): Promise<UnifiedRecipe[]> {
   try {
     const now = Date.now();
-    
+
     // Check cache (cache for 1 hour)
     if (nepaliRecipesCache && nepaliRecipesCacheExpiry > now) {
       console.log("✅ Using cached Nepali recipes");
@@ -145,16 +150,19 @@ async function fetchNepaliRecipes(
       console.log("🔄 Fetching Nepali recipes from GitHub...");
       const response = await fetch(NEPALI_RECIPES_URL);
       console.log("📡 GitHub response status:", response.status);
-      
+
       if (!response.ok) {
-        console.error("❌ Failed to fetch Nepali recipes from GitHub:", response.statusText);
+        console.error(
+          "❌ Failed to fetch Nepali recipes from GitHub:",
+          response.statusText
+        );
         return [];
       }
-      
+
       const jsonData = await response.json();
       console.log("📦 GitHub JSON data structure:", Object.keys(jsonData));
       console.log("📊 Number of meals:", jsonData.meals?.length || 0);
-      
+
       nepaliRecipesCache = jsonData;
       nepaliRecipesCacheExpiry = now + 60 * 60 * 1000; // Cache for 1 hour
     }
@@ -171,7 +179,11 @@ async function fetchNepaliRecipes(
           meal.strTags?.toLowerCase().includes(q) ||
           meal.strCategory?.toLowerCase().includes(q)
       );
-      console.log(`🔎 Filtered by query "${query}":`, filtered.length, "recipes");
+      console.log(
+        `🔎 Filtered by query "${query}":`,
+        filtered.length,
+        "recipes"
+      );
     }
 
     // Filter by category
@@ -179,7 +191,11 @@ async function fetchNepaliRecipes(
       filtered = filtered.filter(
         (meal) => meal.strCategory?.toLowerCase() === category.toLowerCase()
       );
-      console.log(`🏷️ Filtered by category "${category}":`, filtered.length, "recipes");
+      console.log(
+        `🏷️ Filtered by category "${category}":`,
+        filtered.length,
+        "recipes"
+      );
     }
 
     console.log("✨ Returning", filtered.length, "Nepali recipes");
@@ -380,6 +396,7 @@ export async function GET(req: NextRequest) {
     const country = params.get("country");
     const mealType = params.get("mealType");
     const diet = params.get("diet");
+    const tags = params.get("tags"); // NEW: tag-based filtering
     const page = Math.max(1, Number(params.get("page") ?? 1));
     const limit = Math.max(1, Number(params.get("limit") ?? 12));
 
@@ -390,6 +407,7 @@ export async function GET(req: NextRequest) {
       (country || "") +
       (mealType || "") +
       (diet || "") +
+      (tags || "") +
       `:p=${page}:l=${limit}`;
     const now = Date.now();
 
@@ -423,15 +441,58 @@ export async function GET(req: NextRequest) {
 
     console.log("📦 Total recipes before ranking:", allRecipes.length);
 
-    // Apply ranking
-    const rankedResults =
-      query || genre || difficulty
-        ? rankRecipes(allRecipes, query, genre, difficulty)
-        : allRecipes.sort(() => Math.random() - 0.5);
+    // 🔥 FUZZY SEARCH - Find closest matches even with typos
+    let rankedResults = allRecipes;
 
+    if (query && query.trim().length > 0) {
+      console.log("🔍 Applying fuzzy search for:", query);
+
+      const scoredRecipes = fuzzySearchRecipes(allRecipes, query, 5); // min score 5
+
+      console.log(`✨ Fuzzy search found ${scoredRecipes.length} matches`);
+
+      // Group by match quality
+      const grouped = groupRecipesByMatchQuality(scoredRecipes);
+
+      console.log("📊 Match breakdown:");
+      console.log("  - Exact matches:", grouped.exactMatches.length);
+      console.log("  - Partial matches:", grouped.partialMatches.length);
+      console.log("  - Ingredient matches:", grouped.ingredientMatches.length);
+      console.log("  - Similar recipes:", grouped.similarRecipes.length);
+
+      let rankedResults = scoredRecipes;
+
+      // Get suggestions for "Did you mean?"
+      if (scoredRecipes.length === 0 || grouped.exactMatches.length === 0) {
+        const allTitles = allRecipes.map((r) => r.title);
+        const suggestions = getSuggestions(query, allTitles);
+        console.log("💡 Suggestions:", suggestions);
+      }
+    } else if (genre || difficulty || country || mealType || diet) {
+      // Apply traditional ranking if filters are used
+      rankedResults = rankRecipes(allRecipes, query, genre, difficulty);
+    } else {
+      // Random shuffle if no query or filters
+      rankedResults = allRecipes.sort(() => Math.random() - 0.5);
+    }
+
+    // 🏷️ Tag-based filtering (NEW)
+    if (tags) {
+      const selectedTags = tags.split(",").map((t) => t.trim().toLowerCase());
+      console.log("🏷️ Filtering by tags:", selectedTags);
+
+      rankedResults = rankedResults.filter((recipe) => {
+        const recipeTags = (recipe.tags || []).map((t) => t.toLowerCase());
+        // Check if recipe has ALL selected tags
+        return selectedTags.every((tag) => recipeTags.includes(tag));
+      });
+
+      console.log(`📌 After tag filter: ${rankedResults.length} recipes`);
+    }
     // Pagination
     const start = (page - 1) * limit;
     const finalResults = rankedResults.slice(start, start + limit);
+
     cache[cacheKey] = { data: finalResults, expires: now + 3 * 60 * 1000 };
 
     return NextResponse.json(finalResults);

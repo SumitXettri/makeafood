@@ -339,17 +339,6 @@ export default function ResetPassword() {
                   )}
                 </button>
               </div>
-              {confirmPassword !== "" && (
-                <p
-                  className={`text-xs mt-1 ${
-                    passwordsMatch ? "text-green-600" : "text-red-600"
-                  }`}
-                >
-                  {passwordsMatch
-                    ? "✓ Passwords match"
-                    : "✗ Passwords do not match"}
-                </p>
-              )}
             </div>
 
             {/* Submit Button */}
