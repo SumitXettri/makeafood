@@ -460,7 +460,21 @@ export async function GET(req: NextRequest) {
       console.log("  - Ingredient matches:", grouped.ingredientMatches.length);
       console.log("  - Similar recipes:", grouped.similarRecipes.length);
 
-      let rankedResults = scoredRecipes;
+      // Convert scored recipes back to UnifiedRecipe shape (fill missing fields with safe defaults)
+      rankedResults = scoredRecipes.map((s) => ({
+        id: String(s.id),
+        title: s.title,
+        image: (s as Partial<UnifiedRecipe>).image ?? "",
+        source: s.source ?? "Search",
+        description: s.description ?? "",
+        ingredients: s.ingredients ?? [],
+        prep_time_minutes: (s as Partial<UnifiedRecipe>).prep_time_minutes ?? 0,
+        cook_time_minutes: (s as Partial<UnifiedRecipe>).cook_time_minutes ?? 0,
+        servings: (s as Partial<UnifiedRecipe>).servings ?? 0,
+        difficulty_level: s.difficulty_level ?? "",
+        youtube_link: (s as Partial<UnifiedRecipe>).youtube_link ?? getYouTubeSearchLink(s.title),
+        tags: (s as Partial<UnifiedRecipe>).tags ?? undefined,
+      }));
 
       // Get suggestions for "Did you mean?"
       if (scoredRecipes.length === 0 || grouped.exactMatches.length === 0) {

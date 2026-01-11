@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { supabase } from "@/lib/supabaseClient";
 import {
@@ -11,6 +11,11 @@ import {
   LogOut,
   X,
   AlertCircle,
+  ChevronDown,
+  Bell,
+  BookOpen,
+  LayoutDashboard,
+  Shield,
 } from "lucide-react";
 import Image from "next/image";
 import AuthModal from "./AuthModal";
@@ -21,12 +26,15 @@ export default function Navbar() {
   const router = useRouter();
   const [query, setQuery] = useState("");
   const [username, setUsername] = useState<string | null>(null);
+  const [isAdmin, setIsAdmin] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
 
   useEffect(() => {
@@ -35,17 +43,33 @@ export default function Navbar() {
     if (auth === "login" || auth === "signup") {
       setAuthMode(auth);
       setIsAuthModalOpen(true);
-
-      // Optional but recommended: clean URL
       router.replace("/", { scroll: false });
     }
   }, [searchParams, router]);
 
-  // Fetch username from Supabase
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+        setDropdownOpen(false);
+      }
+    };
+
+    if (dropdownOpen) {
+      document.addEventListener("mousedown", handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener("mousedown", handleClickOutside);
+    };
+  }, [dropdownOpen]);
+
+  // Fetch username and admin status from Supabase
   const fetchUsername = async () => {
     const { data: authData } = await supabase.auth.getUser();
     if (!authData.user) {
       setUsername(null);
+      setIsAdmin(false);
       return;
     }
 
@@ -55,7 +79,11 @@ export default function Navbar() {
       .eq("id", authData.user.id)
       .single();
 
-    setUsername(userData?.username || null);
+    const fetchedUsername = userData?.username || null;
+    setUsername(fetchedUsername);
+    
+    // Check if username is "admin01" to determine admin status
+    setIsAdmin(fetchedUsername === "Admin01");
   };
 
   useEffect(() => {
@@ -77,6 +105,7 @@ export default function Navbar() {
       await supabase.auth.signOut();
       setMobileMenuOpen(false);
       setShowLogoutModal(false);
+      setDropdownOpen(false);
       router.push("/");
     } catch (error) {
       console.error("Logout error:", error);
@@ -90,6 +119,7 @@ export default function Navbar() {
   const openLogoutModal = () => {
     setShowLogoutModal(true);
     setMobileMenuOpen(false);
+    setDropdownOpen(false);
   };
 
   // Open login modal
@@ -214,23 +244,78 @@ export default function Navbar() {
                     <span className="hidden lg:inline">Share Recipe</span>
                     <span className="lg:hidden">Share</span>
                   </button>
-                  <div className="flex items-center gap-2 lg:gap-3">
-                    <Link
-                      href="/dashboard"
+                  
+                  {/* Dropdown Menu */}
+                  <div className="relative" ref={dropdownRef}>
+                    <button
+                      onClick={() => setDropdownOpen(!dropdownOpen)}
                       className="flex items-center gap-1.5 lg:gap-2 px-3 lg:px-4 py-2 bg-orange-100 text-orange-700 rounded-xl font-medium hover:bg-orange-200 transition-colors text-sm lg:text-base"
                     >
                       <User size={14} className="lg:w-4 lg:h-4" />
                       <span className="max-w-[80px] lg:max-w-none truncate">
                         {username}
                       </span>
-                    </Link>
-                    <button
-                      onClick={openLogoutModal}
-                      className="p-2 text-gray-600 hover:text-red-600 hover:bg-red-50 rounded-lg transition-all"
-                      title="Logout"
-                    >
-                      <LogOut size={18} className="lg:w-5 lg:h-5" />
+                      <ChevronDown 
+                        size={16} 
+                        className={`transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
+                      />
                     </button>
+
+                    {/* Dropdown Content */}
+                    {dropdownOpen && (
+                      <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 py-2 z-50 animate-in fade-in slide-in-from-top-2 duration-200">
+                        <Link
+                          href="/dashboard"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                        >
+                          <LayoutDashboard size={18} />
+                          <span className="font-medium">Dashboard</span>
+                        </Link>
+                        
+                        <Link
+                          href="/my-recipes"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                        >
+                          <BookOpen size={18} />
+                          <span className="font-medium">My Recipes</span>
+                        </Link>
+                        
+                        <Link
+                          href="/notifications"
+                          onClick={() => setDropdownOpen(false)}
+                          className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
+                        >
+                          <Bell size={18} />
+                          <span className="font-medium">Notifications</span>
+                        </Link>
+
+                        {isAdmin && (
+                          <>
+                            <div className="border-t border-gray-200 my-2"></div>
+                            <Link
+                              href="/admin"
+                              onClick={() => setDropdownOpen(false)}
+                              className="flex items-center gap-3 px-4 py-2.5 text-purple-700 hover:bg-purple-50 transition-colors"
+                            >
+                              <Shield size={18} />
+                              <span className="font-medium">Admin Panel</span>
+                            </Link>
+                          </>
+                        )}
+
+                        <div className="border-t border-gray-200 my-2"></div>
+                        
+                        <button
+                          onClick={openLogoutModal}
+                          className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 hover:bg-red-50 transition-colors"
+                        >
+                          <LogOut size={18} />
+                          <span className="font-medium">Logout</span>
+                        </button>
+                      </div>
+                    )}
                   </div>
                 </>
               )}
@@ -332,12 +417,38 @@ export default function Navbar() {
                 <div className="space-y-2 pt-3 border-t border-orange-100">
                   <Link
                     href="/dashboard"
-                    className="flex items-center gap-2 px-4 py-2.5 bg-orange-100 text-orange-700 rounded-lg font-medium hover:bg-orange-200 transition"
+                    className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
                     onClick={() => setMobileMenuOpen(false)}
                   >
-                    <User size={16} />
-                    <span>{username}</span>
+                    <LayoutDashboard size={16} />
+                    <span>Dashboard</span>
                   </Link>
+                  <Link
+                    href="/my-recipes"
+                    className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <BookOpen size={16} />
+                    <span>My Recipes</span>
+                  </Link>
+                  <Link
+                    href="/notifications"
+                    className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
+                    onClick={() => setMobileMenuOpen(false)}
+                  >
+                    <Bell size={16} />
+                    <span>Notifications</span>
+                  </Link>
+                  {isAdmin && (
+                    <Link
+                      href="/admin"
+                      className="flex items-center gap-2 px-4 py-2.5 text-purple-700 hover:bg-purple-50 rounded-lg transition"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <Shield size={16} />
+                      <span>Admin Panel</span>
+                    </Link>
+                  )}
                   <button
                     onClick={() => {
                       router.push("/addrecipe");

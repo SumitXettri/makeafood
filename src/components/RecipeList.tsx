@@ -200,8 +200,8 @@ export default function RecipeList({
         </h3>
         {query && (
           <p className="text-gray-600 text-center max-w-md">
-            We couldn't find any recipes matching{" "}
-            <span className="font-semibold text-orange-600">"{query}"</span>
+            We couldn&#39;t find any recipes matching{" "}
+            <span className="font-semibold text-orange-600">&quot{query}&quot</span>
           </p>
         )}
         <p className="text-gray-500 text-sm text-center max-w-md mt-2">
@@ -474,8 +474,8 @@ export default function RecipeList({
                 Showing similar results
               </h4>
               <p className="text-yellow-700 text-sm">
-                No exact matches for "
-                <span className="font-semibold">{searchInfo.query}</span>".
+                No exact matches for &ldquo;
+                <span className="font-semibold">{searchInfo.query}</span>&ldquo;.
                 These recipes are related to your search.
               </p>
             </div>
