@@ -13,7 +13,6 @@ import {
   Eye,
   Clock,
   AlertCircle,
-  Globe, // ADD THIS
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -52,18 +51,7 @@ interface RecipeItem {
   order: number;
 }
 
-interface NepaliRecipe {
-  idMeal: string;
-  strMeal: string;
-  strMealThumb: string;
-  strCategory?: string;
-  strArea?: string;
-  strInstructions?: string;
-  strYoutube?: string;
-  strTags?: string;
-  [key: `strIngredient${number}`]: string | undefined;
-  [key: `strMeasure${number}`]: string | undefined;
-}
+
 
 export default function AdminPanel() {
   const [user, setUser] = useState<import("@supabase/supabase-js").User | null>(
@@ -83,20 +71,13 @@ export default function AdminPanel() {
   const [fetchingRecipes, setFetchingRecipes] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
-  const [nepaliRecipes, setNepaliRecipes] = useState<NepaliRecipe[]>([]);
-  const [selectedNepaliRecipe, setSelectedNepaliRecipe] =
-    useState<NepaliRecipe | null>(null);
-  const [fetchingNepali, setFetchingNepali] = useState(false);
 
-  const NEPALI_RECIPES_URL =
-    "https://raw.githubusercontent.com/SumitXettri/NepaliRecipe/main/recipes.json";
+  // Open logout modal helper
+  const openLogoutModal = () => setShowLogoutModal(true);
 
-  const openLogoutModal = () => {
-    setShowLogoutModal(true);
-  };
-
+ 
   useEffect(() => {
-    if (selectedRecipe || selectedNepaliRecipe) {
+    if (selectedRecipe ) {
       // Save current scroll position
       const scrollY = window.scrollY;
 
@@ -117,7 +98,7 @@ export default function AdminPanel() {
         window.scrollTo(0, scrollY);
       };
     }
-  }, [selectedRecipe, selectedNepaliRecipe]);
+  }, [selectedRecipe]);
 
   const checkAdminStatus = async (userId: string) => {
     try {
@@ -246,27 +227,6 @@ export default function AdminPanel() {
     }
   }, []);
 
-  const fetchNepaliRecipes = useCallback(async () => {
-    try {
-      setFetchingNepali(true);
-      console.log("🇳🇵 Fetching Nepali recipes from GitHub...");
-
-      const response = await fetch(NEPALI_RECIPES_URL);
-      if (!response.ok) {
-        throw new Error("Failed to fetch Nepali recipes");
-      }
-
-      const data = await response.json();
-      console.log("✅ Nepali recipes loaded:", data.meals?.length || 0);
-      setNepaliRecipes(data.meals || []);
-    } catch (err) {
-      console.error("❌ Error fetching Nepali recipes:", err);
-      alert("Failed to load Nepali recipes from GitHub");
-    } finally {
-      setFetchingNepali(false);
-    }
-  }, []);
-
   useEffect(() => {
     console.log("🚀 Admin Panel Component Mounted");
     console.log("Initial check for logged in user...");
@@ -299,10 +259,7 @@ export default function AdminPanel() {
         fetchRecipes();
       } else if (activeTab === "users") {
         fetchUsers();
-      } else if (activeTab === "nepali") {
-        // ADD THIS
-        fetchNepaliRecipes();
-      }
+      } 
     }
   }, [
     user,
@@ -310,7 +267,6 @@ export default function AdminPanel() {
     statusFilter,
     fetchRecipes,
     fetchUsers,
-    fetchNepaliRecipes,
   ]);
   // Real-time subscription
   useEffect(() => {
@@ -514,12 +470,7 @@ export default function AdminPanel() {
       u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
       u.username?.toLowerCase().includes(searchTerm.toLowerCase())
   );
-  const filteredNepaliRecipes = nepaliRecipes.filter(
-    (r) =>
-      r.strMeal?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.strCategory?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      r.strArea?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+
 
   if (loading) {
     return (
@@ -588,7 +539,7 @@ export default function AdminPanel() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
-      {(fetchingRecipes || fetchingNepali) && (
+      {(fetchingRecipes) && (
         <div className="text-center py-4">
           <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-orange-500 border-t-transparent"></div>
           <p className="text-sm text-gray-600 mt-2">Refreshing recipes...</p>
@@ -632,22 +583,7 @@ export default function AdminPanel() {
               </span>
             )}
           </button>
-          <button
-            onClick={() => setActiveTab("nepali")}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-semibold transition ${
-              activeTab === "nepali"
-                ? "bg-orange-600 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <Globe className="w-5 h-5" />
-            <span>🇳🇵 Nepali Recipes</span>
-            {nepaliRecipes.length > 0 && (
-              <span className="bg-blue-500 text-white text-xs px-2 py-1 rounded-full">
-                {nepaliRecipes.length}
-              </span>
-            )}
-          </button>
+
           <button
             onClick={() => setActiveTab("users")}
             className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-semibold transition ${
@@ -841,115 +777,7 @@ export default function AdminPanel() {
             </>
           )}
 
-          {/* NEPALI RECIPES TAB */}
-          {activeTab === "nepali" && (
-            <>
-              <div className="flex items-center justify-between mb-6">
-                <h2 className="text-xl font-bold text-gray-800">
-                  🇳🇵 Nepali Recipes from GitHub
-                </h2>
-                <button
-                  onClick={fetchNepaliRecipes}
-                  disabled={fetchingNepali}
-                  className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition font-medium disabled:opacity-50"
-                >
-                  <svg
-                    className={`w-5 h-5 inline mr-2 ${
-                      fetchingNepali ? "animate-spin" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                  Refresh
-                </button>
-              </div>
-
-              <div className="mb-6">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search Nepali recipes..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                {filteredNepaliRecipes.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    No Nepali recipes found
-                  </p>
-                ) : (
-                  filteredNepaliRecipes.map((recipe) => (
-                    <div
-                      key={recipe.idMeal}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            {recipe.strMealThumb && (
-                              <img
-                                src={recipe.strMealThumb}
-                                alt={recipe.strMeal}
-                                className="w-16 h-16 object-cover rounded-lg"
-                              />
-                            )}
-                            <div>
-                              <h3 className="font-semibold text-lg text-gray-800">
-                                {recipe.strMeal}
-                              </h3>
-                              <p className="text-sm text-gray-600 mt-1">
-                                Source: GitHub Repository
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                ID: {recipe.idMeal}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
-                              🇳🇵 Nepali
-                            </span>
-                            {recipe.strCategory && (
-                              <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                                {recipe.strCategory}
-                              </span>
-                            )}
-                            {recipe.strArea && (
-                              <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">
-                                {recipe.strArea}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => setSelectedNepaliRecipe(recipe)}
-                            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                            title="View Details"
-                          >
-                            <Eye className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          )}
+        
 
           {activeTab === "users" && (
             <>
@@ -1193,136 +1021,7 @@ export default function AdminPanel() {
         </div>
       )}
 
-      {/* Nepali Recipe Detail Modal */}
-      {selectedNepaliRecipe && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-          onClick={() => setSelectedNepaliRecipe(null)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-8">
-              <div className="flex justify-between items-start mb-6">
-                <h2 className="text-3xl font-bold text-gray-900 pr-4">
-                  {selectedNepaliRecipe.strMeal}
-                </h2>
-                <button
-                  onClick={() => setSelectedNepaliRecipe(null)}
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-all"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              {selectedNepaliRecipe.strMealThumb && (
-                <img
-                  src={selectedNepaliRecipe.strMealThumb}
-                  alt={selectedNepaliRecipe.strMeal}
-                  className="w-full h-72 object-cover rounded-xl mb-6 shadow-md"
-                />
-              )}
-
-              <div className="space-y-6">
-                <div className="flex flex-wrap gap-2">
-                  <span className="px-4 py-2 bg-gradient-to-r from-green-100 to-emerald-100 text-green-800 text-sm font-semibold rounded-full shadow-sm">
-                    🇳🇵 Nepali Recipe
-                  </span>
-                  {selectedNepaliRecipe.strCategory && (
-                    <span className="px-4 py-2 bg-gradient-to-r from-blue-100 to-cyan-100 text-blue-800 text-sm font-semibold rounded-full shadow-sm">
-                      {selectedNepaliRecipe.strCategory}
-                    </span>
-                  )}
-                  {selectedNepaliRecipe.strArea && (
-                    <span className="px-4 py-2 bg-gradient-to-r from-purple-100 to-pink-100 text-purple-800 text-sm font-semibold rounded-full shadow-sm">
-                      {selectedNepaliRecipe.strArea}
-                    </span>
-                  )}
-                </div>
-
-                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl">
-                  <h3 className="font-bold text-gray-800 mb-3 text-lg">
-                    Ingredients
-                  </h3>
-                  <ul className="space-y-2">
-                    {Array.from({ length: 20 }, (_, i) => i + 1).map((i) => {
-                      const ingredient =
-                        selectedNepaliRecipe[`strIngredient${i}`];
-                      const measure = selectedNepaliRecipe[`strMeasure${i}`];
-                      if (ingredient && ingredient.trim()) {
-                        return (
-                          <li
-                            key={i}
-                            className="text-gray-700 flex items-start"
-                          >
-                            <span className="text-green-600 mr-2 mt-1">•</span>
-                            <span>
-                              <span className="font-medium">
-                                {measure?.trim()}
-                              </span>{" "}
-                              {ingredient.trim()}
-                            </span>
-                          </li>
-                        );
-                      }
-                      return null;
-                    })}
-                  </ul>
-                </div>
-                {selectedNepaliRecipe.strInstructions && (
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-xl">
-                    <h3 className="font-bold text-gray-800 mb-3 text-lg">
-                      Instructions
-                    </h3>
-                    <ol className="space-y-3">
-                      {selectedNepaliRecipe.strInstructions
-                        .split("\n")
-                        .filter((step: string) => step.trim())
-                        .map((step: string, i: number) => (
-                          <li
-                            key={i}
-                            className="text-gray-700 flex items-start"
-                          >
-                            <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3 flex-shrink-0 mt-0.5">
-                              {i + 1}
-                            </span>
-                            <span className="leading-relaxed">
-                              {step.trim()}
-                            </span>
-                          </li>
-                        ))}
-                    </ol>
-                  </div>
-                )}
-
-                {selectedNepaliRecipe.strYoutube && (
-                  <div className="bg-gradient-to-r from-red-50 to-pink-50 p-5 rounded-xl">
-                    <h3 className="font-bold text-gray-800 mb-3 text-lg">
-                      Video Tutorial
-                    </h3>
-                    <a
-                      href={selectedNepaliRecipe.strYoutube}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="inline-flex items-center gap-2 bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                    >
-                      <svg
-                        className="w-5 h-5"
-                        fill="currentColor"
-                        viewBox="0 0 24 24"
-                      >
-                        <path d="M23.498 6.186a3.016 3.016 0 0 0-2.122-2.136C19.505 3.545 12 3.545 12 3.545s-7.505 0-9.377.505A3.017 3.017 0 0 0 .502 6.186C0 8.07 0 12 0 12s0 3.93.502 5.814a3.016 3.016 0 0 0 2.122 2.136c1.871.505 9.376.505 9.376.505s7.505 0 9.377-.505a3.015 3.015 0 0 0 2.122-2.136C24 15.93 24 12 24 12s0-3.93-.502-5.814zM9.545 15.568V8.432L15.818 12l-6.273 3.568z" />
-                      </svg>
-                      Watch on YouTube
-                    </a>
-                  </div>
-                )}
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+     
 
       {showLogoutModal && (
         <div

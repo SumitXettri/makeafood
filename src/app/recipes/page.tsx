@@ -21,9 +21,9 @@ function RecipesContent() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
-      <div className="max-w-7xl mx-auto mb-6 pt-6">
-        <Navbar />
-      </div>
+     <div className="sticky top-0 z-40 bg-white/80 backdrop-blur-sm shadow-sm max-w-7xl mx-auto mb-6 pt-6">
+               <Navbar />
+             </div>
 
       {/* Filter Bar Component */}
 

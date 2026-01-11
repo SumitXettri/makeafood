@@ -73,6 +73,12 @@ function CommunityPage() {
     [key: number]: boolean;
   }>({});
 
+  // New states for trending data
+  const [dailyTopRecipe, setDailyTopRecipe] = useState<RecipeWithUser | null>(null);
+  const [weeklyTopRecipe, setWeeklyTopRecipe] = useState<RecipeWithUser | null>(null);
+  const [monthlyTopRecipe, setMonthlyTopRecipe] = useState<RecipeWithUser | null>(null);
+  const [topCreators, setTopCreators] = useState<Array<{user: UserProfile, recipeCount: number, totalLikes: number}>>([]);
+
   const cuisines = [
     "Nepali",
     "Italian",
@@ -120,10 +126,54 @@ function CommunityPage() {
     setFilteredRecipes(filtered);
   }, [recipes, searchInput, selectedCuisine, selectedDifficulty]);
 
+  const calculateTrendingRecipes = useCallback((recipesData: RecipeWithUser[]) => {
+    const now = new Date();
+    const oneDayAgo = new Date(now.getTime() - 24 * 60 * 60 * 1000);
+    const oneWeekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const oneMonthAgo = new Date(now.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+    // Daily top recipe
+    const dailyRecipes = recipesData.filter(r => new Date(r.created_at) >= oneDayAgo);
+    const dailyTop = dailyRecipes.sort((a, b) => (b.likes + b.views) - (a.likes + a.views))[0];
+    setDailyTopRecipe(dailyTop || null);
+
+    // Weekly top recipe
+    const weeklyRecipes = recipesData.filter(r => new Date(r.created_at) >= oneWeekAgo);
+    const weeklyTop = weeklyRecipes.sort((a, b) => (b.likes + b.views) - (a.likes + a.views))[0];
+    setWeeklyTopRecipe(weeklyTop || null);
+
+    // Monthly top recipe
+    const monthlyRecipes = recipesData.filter(r => new Date(r.created_at) >= oneMonthAgo);
+    const monthlyTop = monthlyRecipes.sort((a, b) => (b.likes + b.views) - (a.likes + a.views))[0];
+    setMonthlyTopRecipe(monthlyTop || null);
+
+    // Top creators
+    const creatorMap = new Map<string, {user: UserProfile, recipeCount: number, totalLikes: number}>();
+    recipesData.forEach(recipe => {
+      if (recipe.user_profile) {
+        const existing = creatorMap.get(recipe.user_id);
+        if (existing) {
+          existing.recipeCount++;
+          existing.totalLikes += recipe.likes || 0;
+        } else {
+          creatorMap.set(recipe.user_id, {
+            user: recipe.user_profile,
+            recipeCount: 1,
+            totalLikes: recipe.likes || 0
+          });
+        }
+      }
+    });
+
+    const topCreatorsList = Array.from(creatorMap.values())
+      .sort((a, b) => b.totalLikes - a.totalLikes)
+      .slice(0, 5);
+    setTopCreators(topCreatorsList);
+  }, []);
+
   useEffect(() => {
     const initialize = async () => {
       try {
-        // Step 1: Get current user
         const {
           data: { user },
         } = await supabase.auth.getUser();
@@ -138,7 +188,6 @@ function CommunityPage() {
             .single();
           setCurrentUser(userData);
 
-          // Step 2: Fetch user's likes
           const { data: likes } = await supabase
             .from("recipe_likes")
             .select("recipe_id")
@@ -150,16 +199,13 @@ function CommunityPage() {
           }
         }
 
-        // Step 3: Fetch recipes (now we have the likes)
         setLoading(true);
         const { data: recipesData, error: recipesError } = await supabase
           .from("recipes")
           .select("*")
           .eq("is_public", true)
-          .eq("is_approved", true) // ✅ ONLY SHOW APPROVED RECIPES
+          .eq("is_approved", true)
           .order("created_at", { ascending: false });
-
-        console.log("Fetched recipes:", recipesData);
 
         if (recipesError) throw recipesError;
 
@@ -167,7 +213,6 @@ function CommunityPage() {
           const recipeIds = recipesData.map((r) => r.id);
           const userIds = [...new Set(recipesData.map((r) => r.user_id))];
 
-          // Fetch users, likes, and comments in parallel
           const [usersData, likeCounts, commentCounts] = await Promise.all([
             supabase
               .from("users")
@@ -186,7 +231,6 @@ function CommunityPage() {
               .then(({ data }) => data),
           ]);
 
-          // Count likes per recipe
           const likeCountMap = new Map<number, number>();
           likeCounts?.forEach((like) => {
             likeCountMap.set(
@@ -195,7 +239,6 @@ function CommunityPage() {
             );
           });
 
-          // Count comments per recipe
           const commentCountMap = new Map<number, number>();
           commentCounts?.forEach((comment) => {
             commentCountMap.set(
@@ -204,7 +247,6 @@ function CommunityPage() {
             );
           });
 
-          // Build final recipes array with all data
           const recipesWithUsers: RecipeWithUser[] = recipesData.map(
             (recipe) => ({
               ...recipe,
@@ -217,6 +259,7 @@ function CommunityPage() {
 
           setRecipes(recipesWithUsers);
           setFilteredRecipes(recipesWithUsers);
+          calculateTrendingRecipes(recipesWithUsers);
         }
       } catch (error) {
         console.error("Error initializing:", error);
@@ -237,9 +280,7 @@ function CommunityPage() {
           table: "recipes",
           filter: "is_public=eq.true",
         },
-        (payload) => {
-          console.log("Recipe change detected:", payload);
-          // Refetch recipes when changes occur
+        () => {
           initialize();
         }
       )
@@ -248,7 +289,7 @@ function CommunityPage() {
     return () => {
       subscription.unsubscribe();
     };
-  }, []);
+  }, [calculateTrendingRecipes]);
 
   useEffect(() => {
     filterRecipes();
@@ -502,6 +543,58 @@ function CommunityPage() {
     });
   };
 
+  const TrendingRecipeCard = ({ recipe, period }: { recipe: RecipeWithUser | null, period: string }) => {
+    if (!recipe) {
+      return (
+        <div className="text-center py-4 text-gray-400 text-sm">
+          No {period} recipe yet
+        </div>
+      );
+    }
+
+    return (
+      <Link href={`/recipe/${recipe.id}`} className="block group">
+        <div className="relative aspect-video bg-gray-200 rounded-lg overflow-hidden mb-2">
+          {recipe.image_url ? (
+            <img
+              src={recipe.image_url}
+              alt={recipe.title}
+              className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-orange-400 to-red-400 text-white">
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+          )}
+          <div className="absolute top-2 right-2 bg-orange-500 text-white px-2 py-1 rounded-full text-xs font-bold">
+            🔥 {period}
+          </div>
+        </div>
+        <h4 className="font-semibold text-gray-900 text-sm mb-1 group-hover:text-orange-600 transition-colors line-clamp-2">
+          {recipe.title}
+        </h4>
+        <div className="flex items-center justify-between text-xs text-gray-500">
+          <span className="flex items-center gap-1">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M3.172 5.172a4 4 0 015.656 0L10 6.343l1.172-1.171a4 4 0 115.656 5.656L10 17.657l-6.828-6.829a4 4 0 010-5.656z" />
+            </svg>
+            {recipe.likes}
+          </span>
+          <span className="flex items-center gap-1">
+            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+              <path d="M10 12a2 2 0 100-4 2 2 0 000 4z" />
+              <path fillRule="evenodd" d="M.458 10C1.732 5.943 5.522 3 10 3s8.268 2.943 9.542 7c-1.274 4.057-5.064 7-9.542 7S1.732 14.057.458 10zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clipRule="evenodd" />
+            </svg>
+            {recipe.views}
+          </span>
+        </div>
+      </Link>
+    );
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-100">
@@ -519,8 +612,8 @@ function CommunityPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#FFF9ED]">
-      <div className="sticky top-0 z-20">
+    <div className="min-h-screen bg-[#F0F2F5]">
+      <div className="sticky top-0 pt-6 z-20 ">
         <div className="max-w-7xl mx-auto px-4 py-3">
           <Navbar />
         </div>
@@ -528,8 +621,9 @@ function CommunityPage() {
 
       <div className="max-w-7xl mx-auto px-4 py-6">
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          {/* Left Sidebar - Filters */}
           <div className="lg:col-span-3">
-            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-24">
+            <div className="bg-white rounded-xl shadow-sm p-4 sticky top-24 border border-gray-200">
               <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
                 <svg
                   className="w-5 h-5 text-orange-500"
@@ -611,8 +705,9 @@ function CommunityPage() {
             </div>
           </div>
 
+          {/* Middle - Feed */}
           <div className="lg:col-span-6 space-y-4">
-            <div className="bg-white rounded-lg shadow-sm p-6">
+            <div className="bg-white rounded-xl shadow-sm p-6 border border-gray-200">
               <div className="flex items-center gap-3">
                 <svg
                   className="w-8 h-8 text-orange-500"
@@ -639,7 +734,7 @@ function CommunityPage() {
             </div>
 
             {filteredRecipes.length === 0 ? (
-              <div className="bg-white rounded-lg shadow-sm p-12 text-center">
+              <div className="bg-white rounded-xl shadow-sm p-12 text-center border border-gray-200">
                 <svg
                   className="w-16 h-16 text-gray-300 mx-auto mb-4"
                   fill="none"
@@ -662,7 +757,7 @@ function CommunityPage() {
               filteredRecipes.map((recipe) => (
                 <div
                   key={recipe.id}
-                  className="bg-white rounded-lg shadow-sm hover:shadow-md transition-shadow"
+                  className="bg-white rounded-xl shadow-sm hover:shadow-md transition-shadow border border-gray-200"
                 >
                   <div className="p-4 flex items-center justify-between">
                     <div className="flex items-center gap-3">
@@ -978,35 +1073,89 @@ function CommunityPage() {
             )}
           </div>
 
+          {/* Right Sidebar - Trending & Top Creators */}
           <div className="lg:col-span-3 hidden lg:block">
-            <div className="bg-white rounded-lg shadow-sm p-4 sticky top-24">
-              <h2 className="text-lg font-bold text-gray-900 mb-4">
-                Community Stats
-              </h2>
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Total Recipes</span>
-                  <span className="text-lg font-bold text-orange-600">
-                    {recipes.length}
-                  </span>
+            <div className="space-y-4 sticky top-24">
+              {/* Trending Recipes */}
+              <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
+                <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M12.395 2.553a1 1 0 00-1.45-.385c-.345.23-.614.558-.822.88-.214.33-.403.713-.57 1.116-.334.804-.614 1.768-.84 2.734a31.365 31.365 0 00-.613 3.58 2.64 2.64 0 01-.945-1.067c-.328-.68-.398-1.534-.398-2.654A1 1 0 005.05 6.05 6.981 6.981 0 003 11a7 7 0 1011.95-4.95c-.592-.591-.98-.985-1.348-1.467-.363-.476-.724-1.063-1.207-2.03zM12.12 15.12A3 3 0 017 13s.879.5 2.5.5c0-1 .5-4 1.25-4.5.5 1 .786 1.293 1.371 1.879A2.99 2.99 0 0113 13a2.99 2.99 0 01-.879 2.121z" clipRule="evenodd" />
+                  </svg>
+                  Trending Recipes
+                </h2>
+                
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Today</h3>
+                    <TrendingRecipeCard recipe={dailyTopRecipe} period="Daily" />
+                  </div>
+                  
+                  <div className="pt-4 border-t border-gray-200">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">This Week</h3>
+                    <TrendingRecipeCard recipe={weeklyTopRecipe} period="Weekly" />
+                  </div>
+                  
+                  <div className="pt-4 border-t border-gray-200">
+                    <h3 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">This Month</h3>
+                    <TrendingRecipeCard recipe={monthlyTopRecipe} period="Monthly" />
+                  </div>
                 </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Active Chefs</span>
-                  <span className="text-lg font-bold text-orange-600">
-                    {new Set(recipes.map((r) => r.user_id)).size}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Total Likes</span>
-                  <span className="text-lg font-bold text-orange-600">
-                    {recipes.reduce((sum, r) => sum + (r.likes || 0), 0)}
-                  </span>
-                </div>
-                <div className="flex items-center justify-between">
-                  <span className="text-sm text-gray-600">Total Views</span>
-                  <span className="text-lg font-bold text-orange-600">
-                    {recipes.reduce((sum, r) => sum + (r.views || 0), 0)}
-                  </span>
+              </div>
+
+              {/* Top Creators */}
+              <div className="bg-white rounded-xl shadow-sm p-4 border border-gray-200">
+                <h2 className="text-lg font-bold text-gray-900 mb-4 flex items-center gap-2">
+                  <svg className="w-5 h-5 text-orange-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path d="M9 6a3 3 0 11-6 0 3 3 0 016 0zM17 6a3 3 0 11-6 0 3 3 0 016 0zM12.93 17c.046-.327.07-.66.07-1a6.97 6.97 0 00-1.5-4.33A5 5 0 0119 16v1h-6.07zM6 11a5 5 0 015 5v1H1v-1a5 5 0 015-5z" />
+                  </svg>
+                  Top Creators
+                </h2>
+                
+                <div className="space-y-3">
+                  {topCreators.length > 0 ? (
+                    topCreators.map((creator, index) => (
+                      <div key={creator.user.id} className="flex items-center gap-3 p-2 hover:bg-gray-50 rounded-lg transition-colors">
+                        <div className="flex-shrink-0 relative">
+                          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-red-400 flex items-center justify-center text-white font-bold">
+                            {creator.user.avatar_url ? (
+                              <img
+                                src={creator.user.avatar_url}
+                                alt={getUserDisplayName(creator.user)}
+                                className="w-full h-full rounded-full object-cover"
+                              />
+                            ) : (
+                              <span className="text-sm">
+                                {getUserDisplayName(creator.user).charAt(0).toUpperCase()}
+                              </span>
+                            )}
+                          </div>
+                          {index === 0 && (
+                            <div className="absolute -top-1 -right-1 bg-yellow-400 rounded-full p-1">
+                              <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
+                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
+                              </svg>
+                            </div>
+                          )}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-semibold text-gray-900 truncate">
+                            {getUserDisplayName(creator.user)}
+                          </p>
+                          <p className="text-xs text-gray-500">
+                            {creator.recipeCount} {creator.recipeCount === 1 ? 'recipe' : 'recipes'} • {creator.totalLikes} likes
+                          </p>
+                        </div>
+                        <div className="flex-shrink-0">
+                          <span className="text-xs font-bold text-orange-600">#{index + 1}</span>
+                        </div>
+                      </div>
+                    ))
+                  ) : (
+                    <div className="text-center py-4 text-gray-400 text-sm">
+                      No creators yet
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
