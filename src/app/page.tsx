@@ -331,26 +331,7 @@ export default function HomePage() {
           </div>
         </section>
 
-        {/* Categories Section */}
-        <section className="mb-20">
-          <h2 className="text-4xl font-bold text-gray-900 mb-8 text-center">
-            Browse by Category
-          </h2>
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            {categories.map((category) => (
-              <button
-                key={category.name}
-                className={`${category.color} p-6 rounded-2xl hover:shadow-xl transition-all duration-300 hover:scale-105 group`}
-              >
-                <div className="text-4xl mb-3 group-hover:scale-110 transition-transform flex justify-center">
-                  {category.icon}
-                </div>
-                <h3 className="font-bold text-sm mb-1">{category.name}</h3>
-                <p className="text-xs opacity-75">{category.count}</p>
-              </button>
-            ))}
-          </div>
-        </section>
+      
 
         {/* CTA Section */}
         <section className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 rounded-3xl p-12 text-center text-white shadow-2xl relative overflow-hidden">
