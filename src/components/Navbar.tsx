@@ -32,6 +32,7 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [initialEmail, setInitialEmail] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -41,9 +42,11 @@ export default function Navbar() {
 
   useEffect(() => {
     const auth = searchParams.get("auth");
+    const email = searchParams.get("email");
 
     if (auth === "login" || auth === "signup") {
       setAuthMode(auth);
+      setInitialEmail(email || "");
       setIsAuthModalOpen(true);
       router.replace("/", { scroll: false });
     }
@@ -564,6 +567,7 @@ export default function Navbar() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         initialMode={authMode}
+        initialEmail={initialEmail}
       />
     </>
   );

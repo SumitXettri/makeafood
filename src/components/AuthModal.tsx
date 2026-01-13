@@ -11,12 +11,14 @@ interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
   initialMode?: "login" | "signup";
+  initialEmail?: string;
 }
 
 export default function AuthModal({
   isOpen,
   onClose,
   initialMode = "login",
+  initialEmail = "",
 }: AuthModalProps) {
   const [mode, setMode] = useState<AuthMode>(initialMode);
   const [email, setEmail] = useState("");
@@ -33,6 +35,12 @@ export default function AuthModal({
   useEffect(() => {
     setMode(initialMode);
   }, [initialMode]);
+
+  useEffect(() => {
+    if (initialEmail && !email) {
+      setEmail(initialEmail);
+    }
+  }, [initialEmail, email]);
 
   // Reset form when modal closes
   useEffect(() => {

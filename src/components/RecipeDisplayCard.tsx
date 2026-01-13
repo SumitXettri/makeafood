@@ -46,74 +46,16 @@ function RecipeDisplayCard({
   setPitch,
   volume,
   setVolume,
-}: RecipeDisplayCardProps) {
+}: any) {
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
-
-  // const handleStop = () => {
-  //   window.speechSynthesis.cancel();
-  //   setIsSpeaking(false);
-  // };
-
-  // const handleSpeak = () => {
-  //   if (!recipe) return;
-
-  //   window.speechSynthesis.cancel();
-
-  //   const textToSpeak = `Recipe: ${
-  //     recipe.title
-  //   }. Ingredients: ${recipe.ingredients.join(
-  //     ", "
-  //   )}. Instructions: ${recipe.instructions.join(". ")}. End of recipe.`;
-
-  //   const utterance = new SpeechSynthesisUtterance(textToSpeak);
-  //   utterance.rate = rate;
-  //   utterance.pitch = pitch;
-  //   utterance.volume = volume;
-
-  //   const setVoice = () => {
-  //     const voices = window.speechSynthesis.getVoices();
-  //     // Prefer a natural-sounding English voice
-  //     const preferredVoice = voices.find(
-  //       (v) =>
-  //         v.lang.startsWith("en") &&
-  //         (v.name.includes("Samantha") ||
-  //           v.name.includes("Google") ||
-  //           v.name.includes("Zira"))
-  //     );
-  //     utterance.voice =
-  //       preferredVoice || voices.find((v) => v.lang.startsWith("en")) || null;
-  //   };
-
-  //   if (window.speechSynthesis.getVoices().length) {
-  //     setVoice();
-  //   } else {
-  //     // Wait for voices to load
-  //     window.speechSynthesis.onvoiceschanged = () => {
-  //       setVoice();
-  //       window.speechSynthesis.onvoiceschanged = null;
-  //     };
-  //   }
-
-  //   utterance.onstart = () => setIsSpeaking(true);
-  //   utterance.onend = () => setIsSpeaking(false);
-  //   utterance.onerror = (e) => {
-  //     console.error("Speech Synthesis Error:", e);
-  //     setIsSpeaking(false);
-  //   };
-
-  //   window.speechSynthesis.speak(utterance);
-  // };
 
   return (
     <div className="space-y-6">
-      {/* Recipe Header Card */}
       <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border-2 border-orange-100 transform hover:scale-[1.005] transition-transform duration-300">
         <div className="bg-gradient-to-br from-orange-600 via-red-500 to-red-600 text-white p-6">
           <h2 className="text-3xl font-extrabold mb-2 tracking-tight">
             {recipe.title}
           </h2>
-
-          {/* Compact Meta Data */}
           <div className="flex flex-wrap gap-x-5 gap-y-2 text-sm font-semibold text-white/90 mt-3">
             {recipe.prep_time && (
               <div className="flex items-center gap-2">
@@ -135,7 +77,6 @@ function RecipeDisplayCard({
           </div>
         </div>
 
-        {/* Action Buttons & Voice Controls */}
         <div className="p-4 bg-gradient-to-r from-orange-50 to-amber-50 border-t-2 border-orange-200 flex flex-wrap gap-3 items-center justify-between">
           <div className="flex gap-3">
             {recipe.youtube_link && (
@@ -184,7 +125,6 @@ function RecipeDisplayCard({
           </div>
         </div>
 
-        {/* Collapsible Voice Settings */}
         <VoiceSettings
           rate={rate}
           setRate={setRate}
@@ -193,13 +133,9 @@ function RecipeDisplayCard({
           volume={volume}
           setVolume={setVolume}
           showVoiceSettings={showVoiceSettings}
-          isSpeaking={isSpeaking}
-          handleStop={handleStop}
-          handleSpeak={handleSpeak}
         />
       </div>
 
-      {/* Ingredients Card */}
       <div className="bg-white rounded-2xl shadow-xl border border-orange-100 p-6">
         <h3 className="text-xl font-extrabold mb-4 flex items-center gap-3 text-gray-800 border-b pb-3 border-orange-100">
           <Utensils className="text-orange-500" size={24} />
@@ -218,7 +154,6 @@ function RecipeDisplayCard({
         </div>
       </div>
 
-      {/* Instructions Card */}
       <div className="bg-white rounded-2xl shadow-xl border border-orange-100 p-6">
         <h3 className="text-xl font-extrabold mb-4 flex items-center gap-3 text-gray-800 border-b pb-3 border-orange-100">
           <BookOpen className="text-orange-500" size={24} />
