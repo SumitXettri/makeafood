@@ -77,25 +77,30 @@ export default function SavedRecipesPage() {
           <p className="text-gray-600">No saved recipes yet 🍽️</p>
         ) : (
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {saved.map((r) => (
-              <Link
-                key={r.id}
-                href={`/recipe/${r.recipe_id}`}
-                className="bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden"
-              >
-                <img
-                  src={r.recipe_image || "logo.svg"}
-                  width={50}
-                  height={50}
-                  alt={r.recipe_title}
-                  className="h-48 w-full object-cover"
-                />
-
-                <div className="p-4">
-                  <h3 className="font-semibold text-lg">{r.recipe_title}</h3>
-                </div>
-              </Link>
-            ))}
+            {saved.length > 0 ? (
+              saved.map((r) => (
+                <Link
+                  key={r.id}
+                  href={`/recipe/${r.recipe_id}`}
+                  className="bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden"
+                >
+                  <img
+                    src={r.recipe_image || "logo.svg"}
+                    alt={r.recipe_title}
+                    className="h-48 w-full object-cover"
+                  />
+                  <div className="p-4">
+                    <h3 className="font-semibold text-lg line-clamp-2">
+                      {r.recipe_title}
+                    </h3>
+                  </div>
+                </Link>
+              ))
+            ) : (
+              <p className="col-span-full text-center text-gray-500 mt-6">
+                You haven't saved any recipes yet.
+              </p>
+            )}
           </div>
         )}
       </div>
