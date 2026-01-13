@@ -17,6 +17,9 @@ export default function SavedRecipesPage() {
   const [user, setUser] = useState<any>(null);
   const [saved, setSaved] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
+  const [comments, setComments] = useState<any[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [commentLoading, setCommentLoading] = useState(false);
 
   useEffect(() => {
     loadSavedRecipes();
@@ -80,13 +83,13 @@ export default function SavedRecipesPage() {
                 href={`/recipe/${r.recipe_id}`}
                 className="bg-white rounded-xl shadow-sm hover:shadow-md transition overflow-hidden"
               >
-                {r.recipe_image && (
-                  <img
-                    src={r.recipe_image}
-                    alt={r.recipe_title}
-                    className="h-48 w-full object-cover"
-                  />
-                )}
+                <img
+                  src={r.recipe_image || "logo.svg"}
+                  width={50}
+                  height={50}
+                  alt={r.recipe_title}
+                  className="h-48 w-full object-cover"
+                />
 
                 <div className="p-4">
                   <h3 className="font-semibold text-lg">{r.recipe_title}</h3>

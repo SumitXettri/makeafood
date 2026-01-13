@@ -312,8 +312,6 @@ export default function RecipeDetails() {
 
       try {
         const res = await fetch(`/api/recipes/${params.id}`);
-        console.log("Fetching recipe ID:", params.id);
-
         const data = await res.json();
 
         console.log("=== RECIPE DETAILS DEBUG ===");
@@ -367,15 +365,14 @@ export default function RecipeDetails() {
       }
 
       try {
-        const response = await fetch("/api/saved-recipe", {
-          method: isSaved ? "DELETE" : "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${session.access_token}`,
-          },
-          body: JSON.stringify({ recipeId: recipe.id }),
-        });
-
+        const response = await fetch(
+          `/api/saved-recipe?recipeId=${recipe.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
         const data = await response.json();
         setIsSaved(data.saved);
       } catch {
@@ -389,25 +386,32 @@ export default function RecipeDetails() {
   useEffect(() => {
     if (!recipe?.id) return;
 
-    const fetchComments = async () => {
-      const { data } = await supabase
-        .from("recipe_comments")
-        .select(
-          `
-    id,
-    content,
-    created_at,
-    user_id,
-    users ( username, avatar_url )
-  `
-        )
-        .eq("recipe_id", recipe.id)
-        .order("created_at", { ascending: false });
+    const fetchSavedStatus = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setIsSaved(false);
+        return;
+      }
 
-      if (data) setComments(data);
+      try {
+        const response = await fetch(
+          `/api/saved-recipe?recipeId=${recipe.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
+        const data = await response.json();
+        setIsSaved(data.saved);
+      } catch {
+        setIsSaved(false);
+      }
     };
 
-    fetchComments();
+    fetchSavedStatus();
   }, [recipe?.id]);
 
   const addComment = async () => {
@@ -918,7 +922,7 @@ export default function RecipeDetails() {
             )}
           </div>
         </div>
-        <div className="mt-12 max-w-7xl">
+        <div className="mt-12 max-w-xl">
           {/* Section Header */}
           <div className="flex items-center gap-3 mb-6">
             <MessageSquare className="w-7 h-7 text-orange-500" />
