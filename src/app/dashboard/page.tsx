@@ -1,6 +1,8 @@
 "use client";
 import React, { useState, useEffect } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import Navbar from "@/components/Navbar";
+import { Link } from "lucide-react";
 
 interface UserProfile {
   id: string;
