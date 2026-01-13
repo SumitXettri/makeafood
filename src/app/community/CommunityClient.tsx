@@ -1,13 +1,8 @@
 "use client";
 import React, { useState, useEffect, useCallback } from "react";
-import { createClient } from "@supabase/supabase-js";
+import { supabase } from "@/lib/supabaseClient";
 import Navbar from "@/components/Navbar";
-import Link from "next/link";
-
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
+import { Link } from "lucide-react";
 
 interface DatabaseRecipe {
   id: number;

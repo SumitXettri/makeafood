@@ -9,8 +9,10 @@
     "lint": "eslint"
   },
   "dependencies": {
+    "@clerk/nextjs": "^6.36.7",
     "@google/genai": "^1.25.0",
     "@google/generative-ai": "^0.24.1",
+    "@supabase/ssr": "^0.8.0",
     "@supabase/supabase-js": "^2.57.4",
     "dompurify": "^3.2.7",
     "lucide-react": "^0.546.0",
