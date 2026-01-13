@@ -2,15 +2,12 @@ import React from "react";
 
 interface VoiceSettingsProps {
   rate: number;
-  setRate: (r: number) => void;
+  setRate: (rate: number) => void;
   pitch: number;
-  setPitch: (p: number) => void;
+  setPitch: (pitch: number) => void;
   volume: number;
-  setVolume: (v: number) => void;
+  setVolume: (volume: number) => void;
   showVoiceSettings: boolean;
-  isSpeaking: boolean;
-  handleStop: () => void;
-  handleSpeak: () => void;
 }
 
 function VoiceSettings({
@@ -21,7 +18,7 @@ function VoiceSettings({
   volume,
   setVolume,
   showVoiceSettings,
-}: any) {
+}: VoiceSettingsProps) {
   if (!showVoiceSettings) return null;
 
   return (

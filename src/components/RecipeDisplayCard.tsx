@@ -46,7 +46,7 @@ function RecipeDisplayCard({
   setPitch,
   volume,
   setVolume,
-}: any) {
+}: RecipeDisplayCardProps) {
   const [showVoiceSettings, setShowVoiceSettings] = useState(false);
 
   return (

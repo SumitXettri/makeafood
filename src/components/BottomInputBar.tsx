@@ -19,7 +19,7 @@ function BottomInputBar({
   removeIngredient,
   handleGenerate,
   handleKeyDown,
-}: any) {
+}: BottomInputBarProps) {
   const filledIngredients = ingredients.filter((ing: string) =>
     ing.trim()
   ).length;
@@ -138,7 +138,7 @@ function BottomInputBar({
       </div>
       <div className="mt-1 text-center text-[10px] text-gray-500">
         <p>
-          What's in your kitchen! List a few core ingredients to start the
+          What&apos;s in your kitchen! List a few core ingredients to start the
           magic.
         </p>
       </div>

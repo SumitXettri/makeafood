@@ -1,6 +1,17 @@
+import React from "react";
 import { ChefHat, ChevronLeft, ChevronRight, Menu, User } from "lucide-react";
 
-function HeaderNavbar({ toggleSidebar, sidebarWidth, setSidebarWidth }: any) {
+interface HeaderNavbarProps {
+  toggleSidebar: () => void;
+  sidebarWidth: number;
+  setSidebarWidth: React.Dispatch<React.SetStateAction<number>>;
+}
+
+function HeaderNavbar({
+  toggleSidebar,
+  sidebarWidth,
+  setSidebarWidth,
+}: HeaderNavbarProps) {
   const handleWidthChange = (delta: number) => {
     setSidebarWidth((prev: number) =>
       Math.min(Math.max(prev + delta, 240), 400)

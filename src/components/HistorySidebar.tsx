@@ -5,13 +5,21 @@ interface ChatMessage {
   content: string;
 }
 
+interface HistorySidebarProps {
+  chatHistory: ChatMessage[];
+  handleNewRecipe: () => void;
+  isOpen: boolean;
+  toggleSidebar: () => void;
+  sidebarWidth: number;
+}
+
 function HistorySidebar({
   chatHistory,
   handleNewRecipe,
   isOpen,
   toggleSidebar,
   sidebarWidth,
-}: any) {
+}: HistorySidebarProps) {
   return (
     <div
       className={`${
@@ -27,7 +35,7 @@ function HistorySidebar({
             </div>
             <div>
               <h2 className="text-xl font-black text-white tracking-tight">
-                MakeAFood AI
+                MakeAFood
               </h2>
               <p className="text-white/80 text-xs font-medium">
                 Smart Recipe Generator
