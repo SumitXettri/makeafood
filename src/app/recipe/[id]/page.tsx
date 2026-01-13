@@ -312,6 +312,8 @@ export default function RecipeDetails() {
 
       try {
         const res = await fetch(`/api/recipes/${params.id}`);
+        console.log("Fetching recipe ID:", params.id);
+
         const data = await res.json();
 
         console.log("=== RECIPE DETAILS DEBUG ===");
@@ -365,14 +367,15 @@ export default function RecipeDetails() {
       }
 
       try {
-        const response = await fetch(
-          `/api/saved-recipe?recipeId=${recipe.id}`,
-          {
-            headers: {
-              Authorization: `Bearer ${session.access_token}`,
-            },
-          }
-        );
+        const response = await fetch("/api/saved-recipe", {
+          method: isSaved ? "DELETE" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ recipeId: recipe.id }),
+        });
+
         const data = await response.json();
         setIsSaved(data.saved);
       } catch {
@@ -391,12 +394,12 @@ export default function RecipeDetails() {
         .from("recipe_comments")
         .select(
           `
-        id,
-        content,
-        created_at,
-        user_id,
-        users ( username, avatar_url )
-      `
+    id,
+    content,
+    created_at,
+    user_id,
+    users ( username, avatar_url )
+  `
         )
         .eq("recipe_id", recipe.id)
         .order("created_at", { ascending: false });
