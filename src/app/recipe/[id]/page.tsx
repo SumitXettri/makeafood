@@ -23,7 +23,6 @@ import {
 import Link from "next/link";
 import { supabase } from "@/lib/supabaseClient";
 import AuthModal from "@/components/AuthModal";
-import Navbar from "@/components/Navbar";
 
 // Updated interfaces to match Supabase schema
 interface Ingredient {
@@ -69,6 +68,17 @@ interface RelatedRecipe {
   prep_time_minutes?: number;
   cook_time_minutes?: number;
   video_url?: string;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  users: {
+    username: string;
+    avatar_url: string | null;
+  }[];
 }
 
 // Separate RelatedRecipes component
@@ -169,7 +179,7 @@ export default function RecipeDetails() {
   const [saving, setSaving] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
-  const [comments, setComments] = useState<any[]>([]);
+  const [comments, setComments] = useState<Comment[]>([]);
   const [commentText, setCommentText] = useState("");
   const [commentLoading, setCommentLoading] = useState(false);
 
@@ -466,7 +476,6 @@ export default function RecipeDetails() {
     // Check if user is authenticated
     const {
       data: { user },
-      error,
     } = await supabase.auth.getUser();
 
     if (!user) {
@@ -1002,10 +1011,10 @@ export default function RecipeDetails() {
                 <div className="flex gap-3">
                   {/* Avatar */}
                   <div className="flex-shrink-0">
-                    {comment.users?.avatar_url ? (
+                    {comment.users?.[0]?.avatar_url ? (
                       <img
-                        src={comment.users.avatar_url}
-                        alt={comment.users?.username || "User"}
+                        src={comment.users[0].avatar_url}
+                        alt={comment.users?.[0]?.username || "User"}
                         className="w-10 h-10 rounded-full ring-2 ring-gray-100"
                       />
                     ) : (
@@ -1019,7 +1028,7 @@ export default function RecipeDetails() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-2 flex-wrap">
                       <span className="font-semibold text-gray-800">
-                        {comment.users?.username || "Anonymous"}
+                        {comment.users?.[0]?.username || "Anonymous"}
                       </span>
                       <span className="text-xs text-gray-400 flex items-center gap-1">
                         <span>•</span>

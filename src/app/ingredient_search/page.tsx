@@ -172,7 +172,7 @@ export default function RecipeGenerator() {
           content: aiMessage,
         },
       ]);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error generating recipe:", err);
 
       // If all else fails, try mock as last resort

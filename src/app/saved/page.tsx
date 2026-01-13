@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabaseClient";
+import { User } from "@supabase/supabase-js";
 import Navbar from "@/components/Navbar";
 import Link from "next/link";
 
@@ -14,12 +15,9 @@ interface SavedRecipe {
 }
 
 export default function SavedRecipesPage() {
-  const [user, setUser] = useState<any>(null);
+  const [user, setUser] = useState<User | null>(null);
   const [saved, setSaved] = useState<SavedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
-  const [comments, setComments] = useState<any[]>([]);
-  const [commentText, setCommentText] = useState("");
-  const [commentLoading, setCommentLoading] = useState(false);
 
   useEffect(() => {
     loadSavedRecipes();
@@ -98,7 +96,7 @@ export default function SavedRecipesPage() {
               ))
             ) : (
               <p className="col-span-full text-center text-gray-500 mt-6">
-                You haven't saved any recipes yet.
+                You haven&apos;t saved any recipes yet.
               </p>
             )}
           </div>
