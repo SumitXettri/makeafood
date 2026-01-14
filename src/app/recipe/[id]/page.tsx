@@ -16,8 +16,13 @@ import {
   CheckCircle2,
   Volume2,
   Youtube,
+  MessageSquare,
+  User,
+  Send,
 } from "lucide-react";
 import Link from "next/link";
+import { supabase } from "@/lib/supabaseClient";
+import AuthModal from "@/components/AuthModal";
 
 // Updated interfaces to match Supabase schema
 interface Ingredient {
@@ -63,6 +68,17 @@ interface RelatedRecipe {
   prep_time_minutes?: number;
   cook_time_minutes?: number;
   video_url?: string;
+}
+
+interface Comment {
+  id: string;
+  content: string;
+  created_at: string;
+  user_id: string;
+  users: {
+    username: string;
+    avatar_url: string | null;
+  }[];
 }
 
 // Separate RelatedRecipes component
@@ -159,6 +175,13 @@ export default function RecipeDetails() {
   const [related, setRelated] = useState<RelatedRecipe[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSaved, setIsSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [comments, setComments] = useState<Comment[]>([]);
+  const [commentText, setCommentText] = useState("");
+  const [commentLoading, setCommentLoading] = useState(false);
 
   const [activeTab, setActiveTab] = useState<"instructions" | "ingredients">(
     "instructions"
@@ -302,11 +325,11 @@ export default function RecipeDetails() {
         const data = await res.json();
 
         console.log("=== RECIPE DETAILS DEBUG ===");
-      console.log("Full API Response:", data);
-      console.log("Recipe Image:", data.recipe?.image);
-      console.log("Recipe Title:", data.recipe?.title);
-      console.log("Raw Ingredients:", data.recipe?.ingredients);
-      console.log("Raw Instructions:", data.recipe?.instructions);
+        console.log("Full API Response:", data);
+        console.log("Recipe Image:", data.recipe?.image);
+        console.log("Recipe Title:", data.recipe?.title);
+        console.log("Raw Ingredients:", data.recipe?.ingredients);
+        console.log("Raw Instructions:", data.recipe?.instructions);
 
         if (data.error) throw new Error(data.error);
 
@@ -339,6 +362,161 @@ export default function RecipeDetails() {
     fetchRecipe();
   }, [params?.id, parseIngredients, parseInstructions]);
 
+  useEffect(() => {
+    if (!recipe?.id) return;
+
+    const fetchSavedStatus = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setIsSaved(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/saved-recipe?recipeId=${recipe.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
+        const data = await response.json();
+        setIsSaved(data.saved);
+      } catch {
+        setIsSaved(false);
+      }
+    };
+
+    fetchSavedStatus();
+  }, [recipe?.id]);
+
+  useEffect(() => {
+    if (!recipe?.id) return;
+
+    const fetchSavedStatus = async () => {
+      const {
+        data: { session },
+      } = await supabase.auth.getSession();
+      if (!session?.access_token) {
+        setIsSaved(false);
+        return;
+      }
+
+      try {
+        const response = await fetch(
+          `/api/saved-recipe?recipeId=${recipe.id}`,
+          {
+            headers: {
+              Authorization: `Bearer ${session.access_token}`,
+            },
+          }
+        );
+        const data = await response.json();
+        setIsSaved(data.saved);
+      } catch {
+        setIsSaved(false);
+      }
+    };
+
+    fetchSavedStatus();
+  }, [recipe?.id]);
+
+  const addComment = async () => {
+    if (!recipe || !commentText.trim()) return;
+
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setAuthMode("login");
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    setCommentLoading(true);
+
+    const newComment = {
+      recipe_id: recipe.id,
+      user_id: user.id,
+      content: commentText.trim(),
+    };
+
+    const { data, error } = await supabase
+      .from("recipe_comments")
+      .insert(newComment)
+      .select(
+        `
+      id,
+      content,
+      created_at,
+      user_id,
+      users ( username, avatar_url )
+    `
+      )
+      .single();
+
+    if (!error && data) {
+      // 🔥 Instantly show comment
+      setComments((prev) => [data, ...prev]);
+      setCommentText("");
+    } else {
+      console.error("Failed to post comment:", error);
+    }
+
+    setCommentLoading(false);
+  };
+
+  const toggleSave = async () => {
+    if (!recipe) return;
+
+    // Check if user is authenticated
+    const {
+      data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+      setAuthMode("login");
+      setIsAuthModalOpen(true);
+      return;
+    }
+
+    // Get the session token
+    const {
+      data: { session },
+    } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      console.error("No access token available");
+      return;
+    }
+
+    setSaving(true);
+
+    try {
+      const response = await fetch("/api/saved-recipe", {
+        method: isSaved ? "DELETE" : "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ recipeId: recipe.id }),
+      });
+      if (response.ok) {
+        setIsSaved((prev) => !prev);
+      } else {
+        const text = await response.text();
+        console.error("Save failed:", response.status, text);
+      }
+    } catch (error) {
+      console.error("Error saving/unsaving recipe:", error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
   const toggleStep = (index: number) => {
     setCompletedSteps((prev) => {
       const newSet = new Set(prev);
@@ -362,6 +540,18 @@ export default function RecipeDetails() {
       default:
         return "bg-gray-100 text-gray-700";
     }
+  };
+
+  const formatTimeAgo = (date: string) => {
+    const seconds = Math.floor(
+      (new Date().getTime() - new Date(date).getTime()) / 1000
+    );
+
+    if (seconds < 60) return "just now";
+    if (seconds < 3600) return `${Math.floor(seconds / 60)}m ago`;
+    if (seconds < 86400) return `${Math.floor(seconds / 3600)}h ago`;
+    if (seconds < 604800) return `${Math.floor(seconds / 86400)}d ago`;
+    return new Date(date).toLocaleDateString();
   };
 
   if (loading) {
@@ -435,7 +625,6 @@ export default function RecipeDetails() {
           <ArrowLeft size={18} />
           Back
         </button>
-
         {/* Main recipe card */}
         <div className="bg-white shadow-2xl rounded-3xl overflow-hidden">
           {/* Hero Image */}
@@ -465,32 +654,21 @@ export default function RecipeDetails() {
 
             {/* Floating action buttons */}
             <div className="absolute top-6 right-6 flex gap-3">
-              {/* <button
-                onClick={() => setIsFavorite(!isFavorite)}
-                className={`w-12 h-12 ${
-                  isFavorite ? "bg-red-500" : "bg-white/90 backdrop-blur-sm"
-                } rounded-full flex items-center justify-center hover:scale-110 transition-all shadow-lg`}
+              <button
+                onClick={toggleSave}
+                disabled={saving}
+                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg hover:scale-110 ${
+                  isSaved ? "bg-orange-500" : "bg-white/90 backdrop-blur-sm"
+                }`}
               >
                 <Heart
-                  className={
-                    isFavorite ? "text-white fill-white" : "text-red-500"
-                  }
                   size={22}
-                />
-              </button> */}
-              {/* <button
-                onClick={() => setIsSaved(!isSaved)}
-                className={`w-12 h-12 ${
-                  isSaved ? "bg-orange-500" : "bg-white/90 backdrop-blur-sm"
-                } rounded-full flex items-center justify-center hover:scale-110 transition-all shadow-lg`}
-              >
-                <Bookmark
                   className={
                     isSaved ? "text-white fill-white" : "text-orange-500"
                   }
-                  size={22}
                 />
-              </button> */}
+              </button>
+
               <button className="w-12 h-12 bg-white/90 backdrop-blur-sm rounded-full flex items-center justify-center hover:scale-110 transition-all shadow-lg">
                 <Share2 className="text-gray-700" size={22} />
               </button>
@@ -753,10 +931,144 @@ export default function RecipeDetails() {
             )}
           </div>
         </div>
+        <div className="mt-12 max-w-xl">
+          {/* Section Header */}
+          <div className="flex items-center gap-3 mb-6">
+            <MessageSquare className="w-7 h-7 text-orange-500" />
+            <h2 className="text-2xl font-bold text-gray-800">
+              Comments
+              <span className="ml-2 text-lg font-normal text-gray-500">
+                ({comments.length})
+              </span>
+            </h2>
+          </div>
+
+          {/* Add comment */}
+          <div className="bg-gradient-to-br from-orange-50 to-white rounded-2xl p-6 mb-8 shadow-sm border border-orange-100">
+            <div className="flex gap-3">
+              <div className="flex-shrink-0">
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-orange-400 to-orange-600 flex items-center justify-center">
+                  <User className="w-5 h-5 text-white" />
+                </div>
+              </div>
+
+              <div className="flex-1">
+                <textarea
+                  value={commentText}
+                  onChange={(e) => setCommentText(e.target.value)}
+                  placeholder="Share your thoughts about this recipe..."
+                  className="w-full border-2 border-gray-200 rounded-xl p-4 focus:ring-2 focus:ring-orange-500 focus:border-orange-500 outline-none resize-none transition-all"
+                  rows={3}
+                />
+
+                <div className="flex items-center justify-between mt-3">
+                  <p className="text-xs text-gray-500">
+                    {commentText.length > 0 &&
+                      `${commentText.length} characters`}
+                  </p>
+                  <button
+                    onClick={addComment}
+                    disabled={commentLoading || !commentText.trim()}
+                    className="px-6 py-2.5 bg-gradient-to-r from-orange-500 to-orange-600 hover:from-orange-600 hover:to-orange-700 text-white rounded-xl font-medium disabled:opacity-50 disabled:cursor-not-allowed transition-all shadow-md hover:shadow-lg flex items-center gap-2"
+                  >
+                    {commentLoading ? (
+                      <>
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin"></div>
+                        Posting...
+                      </>
+                    ) : (
+                      <>
+                        <Send className="w-4 h-4" />
+                        Post Comment
+                      </>
+                    )}
+                  </button>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Comment list */}
+          <div className="space-y-4">
+            {comments.length === 0 && (
+              <div className="text-center py-12 bg-gray-50 rounded-2xl border-2 border-dashed border-gray-200">
+                <MessageSquare className="w-12 h-12 text-gray-300 mx-auto mb-3" />
+                <p className="text-gray-500 font-medium">No comments yet</p>
+                <p className="text-sm text-gray-400 mt-1">
+                  Be the first to share your thoughts!
+                </p>
+              </div>
+            )}
+
+            {comments.map((comment, index) => (
+              <div
+                key={comment.id}
+                className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-md transition-all duration-300 hover:border-orange-200"
+                style={{
+                  animation: `slideIn 0.3s ease-out ${index * 0.05}s both`,
+                }}
+              >
+                <div className="flex gap-3">
+                  {/* Avatar */}
+                  <div className="flex-shrink-0">
+                    {comment.users?.[0]?.avatar_url ? (
+                      <img
+                        src={comment.users[0].avatar_url}
+                        alt={comment.users?.[0]?.username || "User"}
+                        className="w-10 h-10 rounded-full ring-2 ring-gray-100"
+                      />
+                    ) : (
+                      <div className="w-10 h-10 rounded-full bg-gradient-to-br from-gray-300 to-gray-400 flex items-center justify-center">
+                        <User className="w-5 h-5 text-white" />
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-2 flex-wrap">
+                      <span className="font-semibold text-gray-800">
+                        {comment.users?.[0]?.username || "Anonymous"}
+                      </span>
+                      <span className="text-xs text-gray-400 flex items-center gap-1">
+                        <span>•</span>
+                        {formatTimeAgo(comment.created_at)}
+                      </span>
+                    </div>
+
+                    <p className="text-gray-700 leading-relaxed">
+                      {comment.content}
+                    </p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <style jsx>{`
+            @keyframes slideIn {
+              from {
+                opacity: 0;
+                transform: translateX(-10px);
+              }
+              to {
+                opacity: 1;
+                transform: translateX(0);
+              }
+            }
+          `}</style>
+        </div>
 
         {/* Related Recipes */}
         <RelatedRecipes recipes={related} />
       </div>
+
+      {/* Auth Modal */}
+      <AuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        initialMode={authMode}
+      />
     </div>
   );
 }

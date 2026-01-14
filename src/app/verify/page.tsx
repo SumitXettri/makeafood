@@ -9,12 +9,12 @@ function VerifyContent() {
   const [isSuccess, setIsSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
   const searchParams = useSearchParams();
+  const email = searchParams.get("email");
 
   useEffect(() => {
     async function verify() {
       const userId = searchParams.get("userId");
       const username = searchParams.get("username");
-      const email = searchParams.get("email");
 
       console.log(userId, username, email);
       if (!userId || !email || !username) {
@@ -145,7 +145,7 @@ function VerifyContent() {
             <div className="space-y-3">
               {isSuccess && (
                 <Link
-                  href="/?auth=login"
+                  href={`/?auth=login&email=${encodeURIComponent(email || "")}`}
                   className="block w-full bg-orange-600 hover:bg-orange-700 text-white font-semibold py-3 px-6 rounded-lg transition duration-200 text-center"
                 >
                   Go to Login

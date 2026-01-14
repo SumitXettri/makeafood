@@ -1,20 +1,15 @@
 "use client";
 import React, { useState, useEffect } from "react";
-import {
-  User,
-  ChefHat,
-  Sparkles,
-  // Search is imported but unused in the original logic, keeping for future use
-} from "lucide-react";
+import { User, ChefHat, Sparkles } from "lucide-react";
+import HistorySidebar from "@/components/HistorySidebar";
+import HeaderNavbar from "@/components/HeaderNavbar";
+import RecipeDisplayCard from "@/components/RecipeDisplayCard";
+import BottomInputBar from "@/components/BottomInputBar";
 
-import HeaderNavbar from "../../components/HeaderNavbar";
-import RecipeDisplayCard from "../../components/RecipeDisplayCard";
-import HistorySidebar from "../../components/HistorySidebar";
-import BottomInputBar from "../../components/BottomInputBar";
-
+// --- TYPE DEFINITIONS ---
 interface Recipe {
   title: string;
-  ingredients: string[]; // Mock uses string array for simplicity
+  ingredients: string[];
   instructions: string[];
   prep_time?: string;
   servings?: string;
@@ -27,10 +22,9 @@ interface ChatMessage {
   content: string;
 }
 
-// --- MOCK API (To be replaced with real Gemini API call) ---
+// --- MOCK API ---
 const mockGenerateRecipe = async (ingredients: string[]): Promise<Recipe> => {
   await new Promise((resolve) => setTimeout(resolve, 1500));
-
   const ingredientList = ingredients.map((i) => i.toLowerCase().trim());
   const keyIngredients = ingredientList.slice(0, 3).join(", ");
   const baseTitle = keyIngredients
@@ -41,14 +35,14 @@ const mockGenerateRecipe = async (ingredients: string[]): Promise<Recipe> => {
   return {
     title: `${baseTitle} Stir-Fry with Spicy Peanut Sauce`,
     ingredients: [
-      `300g Chicken Breast or Tofu`,
-      `2 tbsp Peanut Butter`,
-      `1 tbsp Soy Sauce (or Tamari)`,
-      `1 tsp Honey or Maple Syrup`,
-      `1/2 tsp Sriracha (or to taste)`,
-      `1 cup Mixed Vegetables (e.g., bell pepper, broccoli)`,
-      `1 cup Cooked Rice or Noodles`,
-      `1/4 cup Chopped Peanuts`,
+      "300g Chicken Breast or Tofu",
+      "2 tbsp Peanut Butter",
+      "1 tbsp Soy Sauce (or Tamari)",
+      "1 tsp Honey or Maple Syrup",
+      "1/2 tsp Sriracha (or to taste)",
+      "1 cup Mixed Vegetables (e.g., bell pepper, broccoli)",
+      "1 cup Cooked Rice or Noodles",
+      "1/4 cup Chopped Peanuts",
     ],
     instructions: [
       "Prepare the peanut sauce by whisking together peanut butter, soy sauce, honey, sriracha, and 3 tbsp of hot water until smooth.",
@@ -72,15 +66,13 @@ export default function RecipeGenerator() {
   const [ingredients, setIngredients] = useState<string[]>([""]);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
-  // Voice Synthesis States (now managed here)
   const [isSpeaking, setIsSpeaking] = useState(false);
   const [rate, setRate] = useState<number>(1.0);
   const [pitch, setPitch] = useState<number>(1.0);
   const [volume, setVolume] = useState<number>(1.0);
-  // Chat/History States
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
-
-  // --- Utility Handlers ---
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [sidebarWidth, setSidebarWidth] = useState(280);
 
   const handleIngredientChange = (index: number, value: string) => {
     const newIngredients = [...ingredients];
@@ -105,12 +97,10 @@ export default function RecipeGenerator() {
     setIngredients([""]);
     setRecipe(null);
     setChatHistory([]);
-    // setSearchQuery is no longer used, removed it.
+    setSidebarOpen(false);
   };
-
-  // --- Main Logic ---
-
   const handleGenerate = async () => {
+    if (loading) return;
     window.speechSynthesis.cancel();
     setIsSpeaking(false);
 
@@ -129,27 +119,85 @@ export default function RecipeGenerator() {
     setRecipe(null);
 
     try {
-      const data = await mockGenerateRecipe(validIngredients);
+      const response = await fetch("/api/recipe", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          ingredients: validIngredients.join(", "),
+        }),
+      });
 
-      setRecipe(data);
+      let data: Recipe;
+      let usedFallback = false;
+
+      if (response.status === 429) {
+        // Quota exceeded - use mock fallback
+        console.log("⚠️ API quota exceeded, using mock recipe generator");
+        data = await mockGenerateRecipe(validIngredients);
+        usedFallback = true;
+      } else if (!response.ok) {
+        const errorData = await response.json();
+        throw new Error(errorData.error || "Failed to generate recipe");
+      } else {
+        data = await response.json();
+      }
+
+      // Add optional fields with fallback values
+      const completeRecipe: Recipe = {
+        title: data.title,
+        ingredients: data.ingredients,
+        instructions: data.instructions,
+        prep_time: data.prep_time || "30 minutes",
+        servings: data.servings || "2-4 servings",
+        difficulty: data.difficulty || "Medium",
+        youtube_link:
+          data.youtube_link ||
+          `https://www.youtube.com/results?search_query=${encodeURIComponent(
+            data.title
+          )}`,
+      };
+
+      setRecipe(completeRecipe);
+
+      const aiMessage = usedFallback
+        ? `🎨 Generated a sample recipe: ${completeRecipe.title} (AI quota reached - showing demo recipe)`
+        : `Found it! Try: ${completeRecipe.title}`;
 
       setChatHistory((prev) => [
         ...prev,
         {
           type: "ai",
-          content: `Found it! Try: ${data.title}`,
+          content: aiMessage,
         },
       ]);
-    } catch (err) {
+    } catch (err: unknown) {
       console.error("Error generating recipe:", err);
-      setChatHistory((prev) => [
-        ...prev,
-        {
-          type: "ai",
-          content:
-            "Sorry, I couldn't generate a recipe right now. Please try again!",
-        },
-      ]);
+
+      // If all else fails, try mock as last resort
+      try {
+        const fallbackRecipe = await mockGenerateRecipe(validIngredients);
+        setRecipe(fallbackRecipe);
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            type: "ai",
+            content: `⚠️ API Error - Generated a sample recipe: ${fallbackRecipe.title}`,
+          },
+        ]);
+      } catch (mockErr) {
+        setChatHistory((prev) => [
+          ...prev,
+          {
+            type: "ai",
+            content:
+              err instanceof Error
+                ? `Error: ${err.message}. Please check your API key and try again.`
+                : "Sorry, I couldn't generate a recipe right now. Please try again!",
+          },
+        ]);
+      }
     } finally {
       setLoading(false);
     }
@@ -162,7 +210,6 @@ export default function RecipeGenerator() {
     }
   };
 
-  // --- Speech Synthesis Handlers ---
   const handleSpeak = () => {
     if (!recipe) return;
 
@@ -216,6 +263,10 @@ export default function RecipeGenerator() {
     setIsSpeaking(false);
   };
 
+  const toggleSidebar = () => {
+    setSidebarOpen((prev) => !prev);
+  };
+
   useEffect(() => {
     window.speechSynthesis.getVoices();
     return () => {
@@ -223,24 +274,35 @@ export default function RecipeGenerator() {
     };
   }, []);
 
-  // --- Main Render ---
   return (
-    <div className="flex h-screen w-full font-sans bg-orange-50">
-      {/* 1. Left Sidebar (History Panel) */}
+    <div className="flex h-screen w-full font-sans bg-orange-50 overflow-hidden">
+      {/* Overlay for mobile */}
+      {sidebarOpen && (
+        <div
+          className="fixed inset-0 bg-black/50 z-20 md:hidden"
+          onClick={toggleSidebar}
+        />
+      )}
+
+      {/* Sidebar */}
       <HistorySidebar
         chatHistory={chatHistory}
         handleNewRecipe={handleNewRecipe}
+        isOpen={sidebarOpen}
+        toggleSidebar={toggleSidebar}
+        sidebarWidth={sidebarWidth}
       />
 
-      {/* 2. Right Panel (Main Content & Input Bar) */}
+      {/* Main Content */}
       <div className="flex-1 flex flex-col bg-orange-50/50 h-full overflow-hidden">
-        {/* TOP NAVBAR */}
-        <HeaderNavbar />
+        <HeaderNavbar
+          toggleSidebar={toggleSidebar}
+          sidebarWidth={sidebarWidth}
+          setSidebarWidth={setSidebarWidth}
+        />
 
-        {/* Scrollable Content Area */}
         <div className="flex-1 overflow-y-auto p-5 md:p-8">
           <div className="max-w-4xl mx-auto space-y-6">
-            {/* Welcome State */}
             {chatHistory.length === 0 && !loading && (
               <div className="text-center py-12 px-4">
                 <div className="w-28 h-28 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
@@ -250,13 +312,12 @@ export default function RecipeGenerator() {
                   AI Chef Assistant is Ready!
                 </h2>
                 <p className="text-lg text-gray-600 font-medium max-w-lg mx-auto">
-                  Enter your ingredients in the input bar below and tap
-                  **Generate** to discover delicious, custom-made recipes.
+                  Enter your ingredients in the input bar below and tap Generate
+                  to discover delicious, custom-made recipes.
                 </p>
               </div>
             )}
 
-            {/* Chat Messages */}
             {chatHistory.map((msg, index) => (
               <div
                 key={index}
@@ -289,7 +350,6 @@ export default function RecipeGenerator() {
               </div>
             ))}
 
-            {/* Loading State */}
             {loading && (
               <div className="flex justify-start">
                 <div className="bg-white p-4 rounded-3xl rounded-tl-md shadow-lg border border-orange-200">
@@ -313,7 +373,6 @@ export default function RecipeGenerator() {
               </div>
             )}
 
-            {/* Recipe Card Display */}
             {recipe && (
               <RecipeDisplayCard
                 recipe={recipe}
@@ -329,12 +388,10 @@ export default function RecipeGenerator() {
               />
             )}
 
-            {/* Spacer to ensure content doesn't get hidden behind the fixed input bar */}
             <div className="h-28 md:h-20"></div>
           </div>
         </div>
 
-        {/* FIXED BOTTOM INPUT BAR */}
         <BottomInputBar
           ingredients={ingredients}
           loading={loading}

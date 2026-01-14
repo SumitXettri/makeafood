@@ -21,6 +21,7 @@ import Image from "next/image";
 import AuthModal from "./AuthModal";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
+import { usePathname } from "next/navigation";
 
 export default function Navbar() {
   const router = useRouter();
@@ -31,17 +32,21 @@ export default function Navbar() {
   const [searchOpen, setSearchOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [authMode, setAuthMode] = useState<"login" | "signup">("login");
+  const [initialEmail, setInitialEmail] = useState("");
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const searchParams = useSearchParams();
+  const pathname = usePathname();
 
   useEffect(() => {
     const auth = searchParams.get("auth");
+    const email = searchParams.get("email");
 
     if (auth === "login" || auth === "signup") {
       setAuthMode(auth);
+      setInitialEmail(email || "");
       setIsAuthModalOpen(true);
       router.replace("/", { scroll: false });
     }
@@ -50,7 +55,10 @@ export default function Navbar() {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target as Node)
+      ) {
         setDropdownOpen(false);
       }
     };
@@ -81,7 +89,7 @@ export default function Navbar() {
 
     const fetchedUsername = userData?.username || null;
     setUsername(fetchedUsername);
-    
+
     // Check if username is "admin01" to determine admin status
     setIsAdmin(fetchedUsername === "Admin01");
   };
@@ -142,7 +150,14 @@ export default function Navbar() {
     const trimmed = query.trim();
     if (!trimmed) return;
 
-    router.push(`/recipes?query=${encodeURIComponent(trimmed)}`);
+    // If on community page, stay on community and pass query
+    if (pathname === "/community") {
+      router.push(`/community?query=${encodeURIComponent(trimmed)}`);
+    } else {
+      // Otherwise go to recipes page
+      router.push(`/recipes?query=${encodeURIComponent(trimmed)}`);
+    }
+
     setQuery("");
     setSearchOpen(false);
     setMobileMenuOpen(false);
@@ -244,7 +259,7 @@ export default function Navbar() {
                     <span className="hidden lg:inline">Share Recipe</span>
                     <span className="lg:hidden">Share</span>
                   </button>
-                  
+
                   {/* Dropdown Menu */}
                   <div className="relative" ref={dropdownRef}>
                     <button
@@ -255,9 +270,11 @@ export default function Navbar() {
                       <span className="max-w-[80px] lg:max-w-none truncate">
                         {username}
                       </span>
-                      <ChevronDown 
-                        size={16} 
-                        className={`transition-transform ${dropdownOpen ? 'rotate-180' : ''}`}
+                      <ChevronDown
+                        size={16}
+                        className={`transition-transform ${
+                          dropdownOpen ? "rotate-180" : ""
+                        }`}
                       />
                     </button>
 
@@ -272,16 +289,16 @@ export default function Navbar() {
                           <LayoutDashboard size={18} />
                           <span className="font-medium">Dashboard</span>
                         </Link>
-                        
+
                         <Link
-                          href="/my-recipes"
+                          href="/myrecipe"
                           onClick={() => setDropdownOpen(false)}
                           className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
                         >
                           <BookOpen size={18} />
                           <span className="font-medium">My Recipes</span>
                         </Link>
-                        
+
                         <Link
                           href="/notifications"
                           onClick={() => setDropdownOpen(false)}
@@ -306,7 +323,7 @@ export default function Navbar() {
                         )}
 
                         <div className="border-t border-gray-200 my-2"></div>
-                        
+
                         <button
                           onClick={openLogoutModal}
                           className="w-full flex items-center gap-3 px-4 py-2.5 text-red-600 hover:bg-red-50 transition-colors"
@@ -424,7 +441,7 @@ export default function Navbar() {
                     <span>Dashboard</span>
                   </Link>
                   <Link
-                    href="/my-recipes"
+                    href="/myrecipe"
                     className="flex items-center gap-2 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 rounded-lg transition"
                     onClick={() => setMobileMenuOpen(false)}
                   >
@@ -550,6 +567,7 @@ export default function Navbar() {
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
         initialMode={authMode}
+        initialEmail={initialEmail}
       />
     </>
   );
