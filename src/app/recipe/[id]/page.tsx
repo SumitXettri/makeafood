@@ -424,6 +424,34 @@ export default function RecipeDetails() {
     fetchSavedStatus();
   }, [recipe?.id]);
 
+  useEffect(() => {
+  if (!recipe?.id) return;
+
+  const fetchComments = async () => {
+    const { data, error } = await supabase
+      .from("recipe_comments")
+      .select(
+        `
+        id,
+        content,
+        created_at,
+        user_id,
+        users ( username, avatar_url )
+      `
+      )
+      .eq("recipe_id", recipe.id)
+      .order("created_at", { ascending: false });
+
+    if (!error && data) {
+      setComments(data);
+    } else {
+      console.error("Failed to fetch comments:", error);
+    }
+  };
+
+  fetchComments();
+}, [recipe?.id]);
+
   const addComment = async () => {
     if (!recipe || !commentText.trim()) return;
 
@@ -657,7 +685,7 @@ export default function RecipeDetails() {
               <button
                 onClick={toggleSave}
                 disabled={saving}
-                className={`w-12 h-12 rounded-full flex items-center justify-center transition-all shadow-lg hover:scale-110 ${
+                className={`w-12 h-12 rounded-full flex cursor-pointer items-center justify-center transition-all shadow-lg hover:scale-110 ${
                   isSaved ? "bg-orange-500" : "bg-white/90 backdrop-blur-sm"
                 }`}
               >
@@ -931,7 +959,7 @@ export default function RecipeDetails() {
             )}
           </div>
         </div>
-        <div className="mt-12 max-w-xl">
+        <div className="mt-12 max-w-7xl">
           {/* Section Header */}
           <div className="flex items-center gap-3 mb-6">
             <MessageSquare className="w-7 h-7 text-orange-500" />

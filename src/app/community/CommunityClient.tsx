@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { supabase } from "@/lib/supabaseClient";
 import Navbar from "@/components/Navbar";
-import { Home, Bookmark, Users, BookOpen, Link } from "lucide-react";
+import { Home, Bookmark, BookOpen, Link } from "lucide-react";
 
 interface DatabaseRecipe {
   id: number;
