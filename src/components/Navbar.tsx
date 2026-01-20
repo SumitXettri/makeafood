@@ -299,14 +299,7 @@ export default function Navbar() {
                           <span className="font-medium">My Recipes</span>
                         </Link>
 
-                        <Link
-                          href="/notifications"
-                          onClick={() => setDropdownOpen(false)}
-                          className="flex items-center gap-3 px-4 py-2.5 text-gray-700 hover:bg-orange-50 hover:text-orange-600 transition-colors"
-                        >
-                          <Bell size={18} />
-                          <span className="font-medium">Notifications</span>
-                        </Link>
+                       
 
                         {isAdmin && (
                           <>
