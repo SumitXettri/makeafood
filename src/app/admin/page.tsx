@@ -13,6 +13,8 @@ import {
   Eye,
   Clock,
   AlertCircle,
+  Trash2,
+  Mail,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
@@ -71,6 +73,8 @@ export default function AdminPanel() {
   const [fetchingRecipes, setFetchingRecipes] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
+  const [deletingUser, setDeletingUser] = useState<string | null>(null);
+  const [warningUser, setWarningUser] = useState<string | null>(null);
 
   // Open logout modal helper
   const openLogoutModal = () => setShowLogoutModal(true);
@@ -221,11 +225,85 @@ export default function AdminPanel() {
         .order("created_at", { ascending: false });
 
       if (error) throw error;
-      setUsers(data || []);
+      
+      // Filter out admin users
+      const adminEmails = ["admin01@gmail.com", "admin02@gmail.com"];
+      const filteredData = data?.filter(user => !adminEmails.includes(user.email)) || [];
+      
+      setUsers(filteredData);
     } catch (err: unknown) {
       console.error("Error fetching users:", err);
     }
   }, []);
+
+  const deleteUser = async (userId: string, userEmail: string, username: string) => {
+    const adminEmails = ["admin01@gmail.com", "admin02@gmail.com"];
+    if (adminEmails.includes(userEmail)) {
+      alert("Cannot delete admin users.");
+      return;
+    }
+
+    if (!confirm(`Are you sure you want to delete user ${username} (${userEmail})? This action cannot be undone.`)) {
+      return;
+    }
+
+    setDeletingUser(userId);
+    try {
+      // Import supabaseAdmin dynamically only when needed
+      const { supabaseAdmin } = await import("../../lib/supabaseAdmin");
+      
+      // Delete user from auth (requires admin privileges)
+      const { error: authError } = await supabaseAdmin.auth.admin.deleteUser(userId);
+      if (authError) throw authError;
+
+      // Delete user from users table (can use regular client)
+      const { error: dbError } = await supabase
+        .from("users")
+        .delete()
+        .eq("id", userId);
+      if (dbError) throw dbError;
+
+      // Refresh users list
+      await fetchUsers();
+      alert(`User ${username} has been deleted successfully.`);
+    } catch (err: unknown) {
+      console.error("Error deleting user:", err);
+      alert("Failed to delete user. Please try again.");
+    } finally {
+      setDeletingUser(null);
+    }
+  };
+
+  const sendWarning = async (userEmail: string, username: string) => {
+    const reason = prompt("Enter the reason for the warning:", "Violation of community guidelines");
+    if (!reason) return;
+
+    setWarningUser(userEmail);
+    try {
+      const response = await fetch("/api/send-warning", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          email: userEmail,
+          username,
+          reason,
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to send warning email");
+      }
+
+      alert(`Warning email sent to ${username} successfully.`);
+    } catch (err: unknown) {
+      console.error("Error sending warning email:", err);
+      alert("Failed to send warning email. Please try again.");
+    } finally {
+      setWarningUser(null);
+    }
+  };
 
   useEffect(() => {
     console.log("🚀 Admin Panel Component Mounted");
@@ -827,6 +905,32 @@ export default function AdminPanel() {
                               {new Date(u.created_at).toLocaleDateString()}
                             </p>
                           </div>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            onClick={() => sendWarning(u.email, u.username || "User")}
+                            disabled={warningUser === u.email}
+                            className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Send Warning Email"
+                          >
+                            {warningUser === u.email ? (
+                              <Clock className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <Mail className="w-5 h-5" />
+                            )}
+                          </button>
+                          <button
+                            onClick={() => deleteUser(u.id, u.email, u.username || "User")}
+                            disabled={deletingUser === u.id}
+                            className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
+                            title="Delete User"
+                          >
+                            {deletingUser === u.id ? (
+                              <Clock className="w-5 h-5 animate-spin" />
+                            ) : (
+                              <Trash2 className="w-5 h-5" />
+                            )}
+                          </button>
                         </div>
                       </div>
                     </div>

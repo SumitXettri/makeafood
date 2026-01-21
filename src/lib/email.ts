@@ -95,3 +95,92 @@ export async function sendEmail(
 
   await transporter.sendMail(mailOptions);
 }
+
+export async function sendWarningEmail(
+  to: string,
+  username: string,
+  reason: string = "Violation of community guidelines"
+) {
+  const mailOptions = {
+    from: process.env.EMAIL_USER,
+    to,
+    subject: "Account Warning - MakeAfood",
+    html: `
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <title>Account Warning</title>
+        </head>
+        <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f4f7fa;">
+          <table role="presentation" style="width: 100%; border-collapse: collapse;">
+            <tr>
+              <td style="padding: 40px 20px;">
+                <table role="presentation" style="max-width: 600px; margin: 0 auto; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);">
+                  <!-- Header -->
+                  <tr>
+                    <td style="padding: 40px 40px 30px; text-align: center; background: linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); border-radius: 12px 12px 0 0;">
+                      <div style="width: 60px; height: 60px; margin: 0 auto 20px; background-color: rgba(255, 255, 255, 0.2); border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                        <svg width="30" height="30" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+                          <path d="M12 9V11M12 15H12.01M21 12C21 16.9706 16.9706 21 12 21C7.02944 21 3 16.9706 3 12C3 7.02944 7.02944 3 12 3C16.9706 3 21 7.02944 21 12Z" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                        </svg>
+                      </div>
+                      <h1 style="margin: 0; color: #ffffff; font-size: 28px; font-weight: 600; letter-spacing: -0.5px;">Account Warning</h1>
+                    </td>
+                  </tr>
+                  
+                  <!-- Body -->
+                  <tr>
+                    <td style="padding: 40px;">
+                      <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.6;">
+                        Hello ${username},
+                      </p>
+                      <p style="margin: 0 0 20px; color: #374151; font-size: 16px; line-height: 1.6;">
+                        We have detected a potential violation of our community guidelines on your MakeAfood account. This warning is issued for the following reason:
+                      </p>
+                      
+                      <div style="margin: 20px 0; padding: 20px; background-color: #fef2f2; border-radius: 8px; border-left: 4px solid #dc2626;">
+                        <p style="margin: 0; color: #991b1b; font-size: 16px; font-weight: 600;">
+                          ${reason}
+                        </p>
+                      </div>
+                      
+                      <p style="margin: 20px 0; color: #374151; font-size: 16px; line-height: 1.6;">
+                        Please review our community guidelines and ensure your future activities comply with our terms of service. Continued violations may result in temporary suspension or permanent account termination.
+                      </p>
+                      
+                      <p style="margin: 20px 0; color: #374151; font-size: 16px; line-height: 1.6;">
+                        If you believe this warning was issued in error, please contact our support team for clarification.
+                      </p>
+                      
+                      <div style="margin-top: 30px; padding: 20px; background-color: #fef3c7; border-radius: 8px; border-left: 4px solid #f59e0b;">
+                        <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 1.6;">
+                          <strong>⚠️ Important:</strong> This is an official warning. Please take appropriate action to avoid further consequences.
+                        </p>
+                      </div>
+                    </td>
+                  </tr>
+                  
+                  <!-- Footer -->
+                  <tr>
+                    <td style="padding: 30px 40px; background-color: #f9fafb; border-radius: 0 0 12px 12px; border-top: 1px solid #e5e7eb;">
+                      <p style="margin: 0 0 10px; color: #6b7280; font-size: 13px; line-height: 1.6; text-align: center;">
+                        This is an automated message from MakeAfood Admin, please do not reply to this email.
+                      </p>
+                      <p style="margin: 0; color: #9ca3af; font-size: 12px; text-align: center;">
+                        © ${new Date().getFullYear()} MakeAfood. All rights reserved.
+                      </p>
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+          </table>
+        </body>
+      </html>
+    `,
+  };
+
+  await transporter.sendMail(mailOptions);
+}
