@@ -68,6 +68,19 @@ function Dashboard() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
+      // Check if user is a chief, redirect to chief dashboard
+      const { data: chiefCheck } = await supabase
+        .from("chiefs")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .single();
+
+      if (chiefCheck) {
+        window.location.href = "/chief-dashboard";
+        return;
+      }
+
       const { data: profile } = await supabase
         .from("users")
         .select("*")
@@ -110,11 +123,11 @@ function Dashboard() {
 
         const likeMap = new Map();
         likes.data?.forEach((l) =>
-          likeMap.set(l.recipe_id, (likeMap.get(l.recipe_id) || 0) + 1)
+          likeMap.set(l.recipe_id, (likeMap.get(l.recipe_id) || 0) + 1),
         );
         const commentMap = new Map();
         comments.data?.forEach((c) =>
-          commentMap.set(c.recipe_id, (commentMap.get(c.recipe_id) || 0) + 1)
+          commentMap.set(c.recipe_id, (commentMap.get(c.recipe_id) || 0) + 1),
         );
 
         const enriched = recipesData.map((r) => ({
@@ -426,7 +439,7 @@ function Dashboard() {
                       | "public"
                       | "private"
                       | "pending"
-                      | "approved"
+                      | "approved",
                   )
                 }
                 className={`px-6 py-4 font-semibold transition-colors relative ${

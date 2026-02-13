@@ -187,6 +187,7 @@ export default function RecipeGenerator() {
           },
         ]);
       } catch (mockErr) {
+        console.log(mockErr)
         setChatHistory((prev) => [
           ...prev,
           {

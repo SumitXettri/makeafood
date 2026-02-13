@@ -49,6 +49,21 @@ interface MealDBRecipe {
   [key: `strMeasure${number}`]: string | undefined;
 }
 
+interface RecipeAPIComRecipe {
+  id: number;
+  title: string;
+  image: string;
+  description?: string;
+  instructions?: string;
+  ingredients?: string[];
+  prep_time_minutes?: number;
+  cook_time_minutes?: number;
+  servings?: number;
+  difficulty?: string;
+  cuisine?: string;
+  tags?: string[];
+}
+
 interface DatabaseRecipe {
   id: number;
   user_id: string;
@@ -147,7 +162,6 @@ async function fetchNepaliRecipes(
     if (nepaliRecipesCache && nepaliRecipesCacheExpiry > now) {
       console.log("✅ Using cached Nepali recipes");
     } else {
-      console.log("🔄 Fetching Nepali recipes from GitHub...");
       const response = await fetch(NEPALI_RECIPES_URL);
       console.log("📡 GitHub response status:", response.status);
 

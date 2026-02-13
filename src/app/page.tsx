@@ -117,45 +117,6 @@ export default function HomePage() {
     },
   ];
 
-  const categories = [
-    {
-      name: "Quick Meals",
-      icon: <Clock size={32} />,
-      color: "bg-orange-100 text-orange-600",
-      count: "234+",
-    },
-    {
-      name: "Healthy",
-      icon: <Leaf size={32} />,
-      color: "bg-green-100 text-green-600",
-      count: "189+",
-    },
-    {
-      name: "Desserts",
-      icon: <span className="text-3xl">🧁</span>,
-      color: "bg-pink-100 text-pink-600",
-      count: "156+",
-    },
-    {
-      name: "Asian",
-      icon: <span className="text-3xl">🍜</span>,
-      color: "bg-red-100 text-red-600",
-      count: "298+",
-    },
-    {
-      name: "Italian",
-      icon: <Pizza size={32} />,
-      color: "bg-yellow-100 text-yellow-700",
-      count: "210+",
-    },
-    {
-      name: "Comfort Food",
-      icon: <span className="text-3xl">🍗</span>,
-      color: "bg-amber-100 text-amber-600",
-      count: "167+",
-    },
-  ];
-
   const trendingSearches = [
     "Vegan Bowl",
     "Pasta Carbonara",
@@ -184,11 +145,10 @@ export default function HomePage() {
     <div className="min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
       <Suspense fallback={<div>Loading Navbar...</div>}>
         <div className="sticky top-0 z-20 ">
-               <div className="max-w-7xl mx-auto px-4 py-3">
-                 <Navbar />
-               </div>
-             </div>
-       
+          <div className="max-w-7xl mx-auto px-4 py-3">
+            <Navbar />
+          </div>
+        </div>
       </Suspense>
 
       {/* Hero Section */}
@@ -318,8 +278,8 @@ export default function HomePage() {
                         recipe.difficulty === "Easy"
                           ? "text-green-600"
                           : recipe.difficulty === "Medium"
-                          ? "text-orange-600"
-                          : "text-red-600"
+                            ? "text-orange-600"
+                            : "text-red-600"
                       }`}
                     >
                       {recipe.difficulty}
@@ -330,8 +290,6 @@ export default function HomePage() {
             ))}
           </div>
         </section>
-
-      
 
         {/* CTA Section */}
         <section className="bg-gradient-to-r from-orange-500 via-red-500 to-pink-500 rounded-3xl p-12 text-center text-white shadow-2xl relative overflow-hidden">

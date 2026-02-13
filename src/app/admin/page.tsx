@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 
+
+
 interface DatabaseUser {
   id: string;
   email: string;
@@ -35,6 +37,7 @@ interface Recipe {
   id: string;
   title: string;
   image_url?: string;
+  user_id: string;
   description: string;
   prep_time_minutes: number;
   cook_time_minutes: number;
@@ -53,6 +56,24 @@ interface RecipeItem {
   order: number;
 }
 
+interface Chief {
+  id: string;
+  user_id: string;
+  expertise_area?: string | null;
+  specialization?: string | null;
+  experience_years?: number | null;
+  certification?: string | null;
+  approved_by?: string | null;
+  is_active?: boolean;
+  created_at?: string;
+  users?: {
+    id: string;
+    username?: string | null;
+    email?: string | null;
+    avatar_url?: string | null;
+  } | null;
+}
+
 
 
 export default function AdminPanel() {
@@ -61,7 +82,7 @@ export default function AdminPanel() {
   );
   const router = useRouter();
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("recipes");
+  const [activeTab, setActiveTab] = useState("users");
   const [recipes, setRecipes] = useState<Recipe[]>([]);
   const [users, setUsers] = useState<DatabaseUser[]>([]);
   const [email, setEmail] = useState("");
@@ -69,12 +90,19 @@ export default function AdminPanel() {
   const [error, setError] = useState("");
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
-  const [statusFilter, setStatusFilter] = useState("pending");
+  const [statusFilter, setStatusFilter] = useState("all");
   const [fetchingRecipes, setFetchingRecipes] = useState(false);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
   const [isLoggingOut, setIsLoggingOut] = useState(false);
   const [deletingUser, setDeletingUser] = useState<string | null>(null);
   const [warningUser, setWarningUser] = useState<string | null>(null);
+  const [chiefs, setChiefs] = useState<Chief[]>([]);
+const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+const [selectedUser, setSelectedUser] = useState<DatabaseUser | null>(null);
+const [expertiseArea, setExpertiseArea] = useState("");
+const [specialization, setSpecialization] = useState("");
+const [experienceYears, setExperienceYears] = useState("");
+const [certification, setCertification] = useState("");
 
   // Open logout modal helper
   const openLogoutModal = () => setShowLogoutModal(true);
@@ -143,10 +171,8 @@ export default function AdminPanel() {
   }, []);
 
   const fetchRecipes = useCallback(async () => {
-    console.log("\n=== FETCH RECIPES START ===");
-    console.log("Current statusFilter:", statusFilter);
-    console.log("Current activeTab:", activeTab);
-    console.log("Current user:", user?.email);
+   
+
 
     try {
       setFetchingRecipes(true);
@@ -162,29 +188,21 @@ export default function AdminPanel() {
         .order("created_at", { ascending: false });
 
       if (statusFilter === "pending") {
-        console.log("Filtering for PENDING recipes (is_approved = false)");
         query = query.eq("is_approved", false);
       } else if (statusFilter === "approved") {
-        console.log("Filtering for APPROVED recipes (is_approved = true)");
         query = query.eq("is_approved", true);
       } else {
-        console.log("Fetching ALL recipes (no filter)");
       }
 
-      console.log("Executing Supabase query...");
       const { data, error } = await query;
 
       if (error) {
-        console.error("❌ Supabase query error:", error);
         throw error;
       }
 
-      console.log("✅ Query successful!");
-      console.log("Total recipes fetched:", data?.length || 0);
-      console.log("Raw data from Supabase:", data);
+   
 
       if (data && data.length > 0) {
-        console.log("First recipe sample:", data[0]);
         console.log(
           "Recipe approval statuses:",
           data.map((r) => ({
@@ -194,11 +212,8 @@ export default function AdminPanel() {
           }))
         );
 
-        const approvedCount = data.filter((r) => r.is_approved).length;
-        const pendingCount = data.filter((r) => !r.is_approved).length;
-        console.log(
-          `Breakdown: ${approvedCount} approved, ${pendingCount} pending`
-        );
+       
+        
       } else {
         console.warn("⚠️ No recipes returned from query");
       }
@@ -213,11 +228,10 @@ export default function AdminPanel() {
       });
     } finally {
       setFetchingRecipes(false);
-      console.log("=== FETCH RECIPES END ===\n");
     }
   }, [statusFilter, activeTab, user?.email]);
 
-  const fetchUsers = useCallback(async () => {
+  const use = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("users")
@@ -264,7 +278,7 @@ export default function AdminPanel() {
       if (dbError) throw dbError;
 
       // Refresh users list
-      await fetchUsers();
+      await use();
       alert(`User ${username} has been deleted successfully.`);
     } catch (err: unknown) {
       console.error("Error deleting user:", err);
@@ -273,6 +287,92 @@ export default function AdminPanel() {
       setDeletingUser(null);
     }
   };
+
+  const fetchChiefs = async () => {
+  try {
+    console.log("→ Fetching chiefs...");
+    const { data, error } = await supabase
+      .from("chiefs")
+      .select(`
+        *,
+        users:user_id (
+          id,
+          username,
+          email,
+          avatar_url
+        )
+      `)
+      .order("created_at", { ascending: false });
+
+    if (error) throw error;
+    console.log("Chiefs data fetched:", data);
+    setChiefs((data as Chief[]) || []);
+  } catch (error) {
+    console.error("Error fetching chiefs:", error);
+  }
+};
+
+const upgradeToChief = async () => {
+  if (!selectedUser || !expertiseArea) {
+    alert("Please fill in required fields");
+    return;
+  }
+
+  if (!user) {
+    alert("No admin user available to approve this action.");
+    return;
+  }
+
+  try {
+    const { data, error } = await supabase
+      .from("chiefs")
+      .insert([
+        {
+          id: crypto.randomUUID(),
+          user_id: selectedUser.id,
+          expertise_area: expertiseArea,
+          specialization: specialization || null,
+          experience_years: experienceYears ? parseInt(experienceYears) : null,
+          certification: certification || null,
+          approved_by: user.id,
+          is_active: true,
+        },
+      ])
+      .select();
+
+    if (error) throw error;
+
+    alert(`${selectedUser.username || selectedUser.email} upgraded to Chief successfully!`);
+    setShowUpgradeModal(false);
+    setSelectedUser(null);
+    setExpertiseArea("");
+    setSpecialization("");
+    setExperienceYears("");
+    setCertification("");
+    fetchChiefs();
+  } catch (error) {
+    console.error("Error upgrading to chief:", error);
+    alert("Failed to upgrade user to chief");
+  }
+};
+const downgradeChief = async (chiefId: string, userId: string) => {
+  if (!confirm("Are you sure you want to remove chief status?")) return;
+
+  try {
+    const { error } = await supabase
+      .from("chiefs")
+      .delete()
+      .eq("user_id", userId);
+
+    if (error) throw error;
+
+    alert("Chief status removed successfully!");
+    fetchChiefs();
+  } catch (error) {
+    console.error("Error downgrading chief:", error);
+    alert("Failed to remove chief status");
+  }
+};
 
   const sendWarning = async (userEmail: string, username: string) => {
     const reason = prompt("Enter the reason for the warning:", "Violation of community guidelines");
@@ -306,54 +406,34 @@ export default function AdminPanel() {
   };
 
   useEffect(() => {
-    console.log("🚀 Admin Panel Component Mounted");
-    console.log("Initial check for logged in user...");
+ 
     checkUser();
   }, [checkUser]);
 
   useEffect(() => {
-    console.log("\n🔄 useEffect triggered - activeTab or statusFilter changed");
-    console.log("User logged in:", !!user);
-    console.log("Active tab:", activeTab);
-    console.log("Status filter:", statusFilter);
+   
 
     if (user) {
       if (activeTab === "recipes") {
-        console.log("→ Fetching recipes...");
         fetchRecipes();
       }
       if (activeTab === "users") {
-        console.log("→ Fetching users...");
-        fetchUsers();
+        use();
+      }
+      if (activeTab === "chefs") {
+        fetchChiefs();
       }
     } else {
       console.log("⚠️ No user logged in, skipping fetch");
     }
-  }, [user, activeTab, statusFilter, fetchRecipes, fetchUsers]);
-
-  useEffect(() => {
-    if (user) {
-      if (activeTab === "recipes") {
-        fetchRecipes();
-      } else if (activeTab === "users") {
-        fetchUsers();
-      } 
-    }
-  }, [
-    user,
-    activeTab,
-    statusFilter,
-    fetchRecipes,
-    fetchUsers,
-  ]);
+  }, [user, activeTab, statusFilter, fetchRecipes, use, fetchChiefs]);
+ 
   // Real-time subscription
   useEffect(() => {
     if (!user || activeTab !== "recipes") {
-      console.log("Real-time subscription not active (no user or wrong tab)");
       return;
     }
 
-    console.log("🔴 Setting up real-time subscription for recipe changes...");
 
     const channel = supabase
       .channel("recipe-changes")
@@ -386,9 +466,7 @@ export default function AdminPanel() {
 
   // Log filtered recipes
   useEffect(() => {
-    console.log("\n🔍 Filtering recipes");
-    console.log("Total recipes:", recipes.length);
-    console.log("Search term:", searchTerm);
+    
     const filtered = recipes.filter(
       (r) =>
         r.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -439,10 +517,7 @@ export default function AdminPanel() {
   };
 
   const approveRecipe = async (recipeId: string, approved: boolean) => {
-    console.log("\n=== APPROVE RECIPE START ===");
-    console.log("Recipe ID:", recipeId);
-    console.log("Setting approved to:", approved);
-    console.log("Setting is_public to:", approved);
+  
 
     try {
       console.log("Optimistically updating local state...");
@@ -450,7 +525,6 @@ export default function AdminPanel() {
         const updated = prevRecipes.map((recipe) =>
           recipe.id === recipeId ? { ...recipe, is_approved: approved } : recipe
         );
-        console.log("Updated recipes count:", updated.length);
         return updated;
       });
 
@@ -465,20 +539,18 @@ export default function AdminPanel() {
         .eq("id", recipeId)
         .select();
 
+        console.log(data)
+
       if (error) {
         console.error("❌ Supabase update error:", error);
         throw error;
       }
 
-      console.log("✅ Supabase update successful!");
-      console.log("Updated recipe data:", data);
-
-      console.log("Refetching all recipes...");
+     
       await fetchRecipes();
 
       setSelectedRecipe(null);
       console.log("Modal closed");
-      console.log("=== APPROVE RECIPE END ===\n");
     } catch (err: unknown) {
       console.error("❌ Error approving recipe:", err);
       console.error("Error details:", {
@@ -494,22 +566,18 @@ export default function AdminPanel() {
 
   const deleteRecipe = async (recipeId: string) => {
     if (!confirm("Are you sure you want to delete this recipe?")) {
-      console.log("Delete cancelled by user");
       return;
     }
 
-    console.log("\n=== DELETE RECIPE START ===");
-    console.log("Recipe ID to delete:", recipeId);
+
 
     try {
       console.log("Optimistically removing from local state...");
       setRecipes((prevRecipes) => {
         const filtered = prevRecipes.filter((recipe) => recipe.id !== recipeId);
-        console.log("Recipes remaining after delete:", filtered.length);
         return filtered;
       });
 
-      console.log("Sending delete request to Supabase...");
       const { error } = await supabase
         .from("recipes")
         .delete()
@@ -520,9 +588,7 @@ export default function AdminPanel() {
         throw error;
       }
 
-      console.log("✅ Recipe deleted successfully from database");
       setSelectedRecipe(null);
-      console.log("=== DELETE RECIPE END ===\n");
     } catch (err: unknown) {
       console.error("❌ Error deleting recipe:", err);
       console.error("Error details:", {
@@ -531,7 +597,6 @@ export default function AdminPanel() {
       });
       alert("Failed to delete recipe");
 
-      console.log("Refetching recipes after delete error...");
       await fetchRecipes();
     }
   };
@@ -543,646 +608,1026 @@ export default function AdminPanel() {
       r.users?.username?.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredUsers = users.filter(
-    (u) =>
-      u.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      u.username?.toLowerCase().includes(searchTerm.toLowerCase())
-  );
+  // Filter users based on active tab and search
+const filteredUsers = (() => {
+  let filtered = users;
 
+  // Filter out chiefs from users tab
+  if (activeTab === "users") {
+    const chiefUserIds = chiefs.map(c => c.user_id);
+    filtered = filtered.filter(u => !chiefUserIds.includes(u.id));
+  }
 
-  if (loading) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center">
-        <div className="text-xl text-gray-600">Loading...</div>
-      </div>
+  // Apply search filter
+  if (searchTerm) {
+    filtered = filtered.filter(
+      (u) =>
+        u.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        u.email?.toLowerCase().includes(searchTerm.toLowerCase())
     );
   }
 
-  if (!user) {
-    return (
-      <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md">
-          <div className="flex items-center justify-center mb-6">
-            <Shield className="w-12 h-12 text-orange-600" />
-          </div>
-          <h1 className="text-3xl font-bold text-center mb-2 text-gray-800">
-            Admin Panel
-          </h1>
-          <p className="text-center text-gray-600 mb-6">
-            MakeAFood Administration
-          </p>
+  return filtered;
+})();
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
-              {error}
-            </div>
-          )}
 
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email
-              </label>
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter admin email"
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password
-              </label>
-              <input
-                type="password"
-                value={password}
-                placeholder="Enter admin password"
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-              />
-            </div>
-            <button
-              type="submit"
-              className="w-full bg-orange-600 text-white py-3 rounded-lg font-semibold hover:bg-orange-700 transition"
-            >
-              Sign In
-            </button>
-          </form>
-        </div>
-      </div>
-    );
-  }
-
+ if (loading) {
   return (
-    <div className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
-      {(fetchingRecipes) && (
-        <div className="text-center py-4">
-          <div className="inline-block animate-spin rounded-full h-8 w-8 border-4 border-orange-500 border-t-transparent"></div>
-          <p className="text-sm text-gray-600 mt-2">Refreshing recipes...</p>
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="text-center">
+        <div className="inline-block animate-spin rounded-full h-12 w-12 border-4 border-orange-600 border-t-transparent mb-4"></div>
+        <div className="text-lg text-gray-600">Loading...</div>
+      </div>
+    </div>
+  );
+}
+
+if (!user) {
+  return (
+    <div className="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+      <div className="bg-white rounded-2xl shadow-xl p-8 w-full max-w-md border border-gray-100">
+        <div className="flex items-center justify-center mb-6">
+          <div className="w-16 h-16 bg-orange-600 rounded-2xl flex items-center justify-center">
+            <Shield className="w-10 h-10 text-white" />
+          </div>
         </div>
-      )}
-      <nav className="bg-white shadow-md">
-        <div className="max-w-7xl mx-auto px-4 py-4 flex items-center justify-between">
-          <div className="flex items-center space-x-3">
-            <Shield className="w-8 h-8 text-orange-600" />
-            <h1 className="text-2xl font-bold text-gray-800">
-              MakeAFood Admin
-            </h1>
+        <h1 className="text-3xl font-bold text-center mb-2 text-gray-900">
+          Admin Panel
+        </h1>
+        <p className="text-center text-gray-500 mb-8">
+          MakeAFood Administration
+        </p>
+
+        {error && (
+          <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-xl mb-6">
+            {error}
+          </div>
+        )}
+
+        <form onSubmit={handleLogin} className="space-y-4">
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Email
+            </label>
+            <input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              placeholder="Enter admin email"
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-gray-700 mb-2">
+              Password
+            </label>
+            <input
+              type="password"
+              value={password}
+              placeholder="Enter admin password"
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+            />
+          </div>
+          <button
+            type="submit"
+            className="w-full bg-orange-600 text-white py-3 rounded-xl font-semibold hover:bg-orange-700 transition-all shadow-md hover:shadow-lg mt-6"
+          >
+            Sign In
+          </button>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+return (
+  <div className="min-h-screen bg-gray-50">
+    {/* Navigation Bar */}
+    <nav className="bg-gray-800 shadow-lg border-b border-gray-700">
+      <div className="max-w-7xl mx-auto px-6 py-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
+              <div className="w-10 h-10 bg-orange-600 rounded-lg flex items-center justify-center">
+                <ChefHat className="w-6 h-6 text-white" />
+              </div>
+              <h1 className="text-2xl font-bold text-white">
+                MakeAFood<span className="text-orange-500">Manager</span>
+              </h1>
+            </div>
+            <div className="hidden md:flex items-center space-x-1 ml-8">
+              <button
+                onClick={() => setActiveTab("dashboard")}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  activeTab === "dashboard"
+                    ? "text-orange-500 border-b-2 border-orange-500"
+                    : "text-gray-300 hover:text-white"
+                }`}
+              >
+                Dashboard
+              </button>
+              <button
+                onClick={() => setActiveTab("recipes")}
+                className={`px-4 py-2 rounded-lg font-medium transition relative ${
+                  activeTab === "recipes"
+                    ? "text-orange-500 border-b-2 border-orange-500"
+                    : "text-gray-300 hover:text-white"
+                }`}
+              >
+                Recipes
+                {recipes.filter((r) => !r.is_approved).length > 0 && (
+                  <span className="absolute -top-1 -right-1 bg-red-500 text-white text-xs px-1.5 py-0.5 rounded-full">
+                    {recipes.filter((r) => !r.is_approved).length}
+                  </span>
+                )}
+              </button>
+              <button
+                onClick={() => setActiveTab("chefs")}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  activeTab === "chefs"
+                    ? "text-orange-500 border-b-2 border-orange-500"
+                    : "text-gray-300 hover:text-white"
+                }`}
+              >
+                Chefs
+              </button>
+              <button
+                onClick={() => setActiveTab("users")}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  activeTab === "users"
+                    ? "text-orange-500 border-b-2 border-orange-500"
+                    : "text-gray-300 hover:text-white"
+                }`}
+              >
+                Users
+              </button>
+            </div>
           </div>
           <div className="flex items-center space-x-4">
-            <span className="text-sm text-gray-600">{user.email}</span>
+            <div className="text-right hidden sm:block">
+              <p className="text-sm text-gray-400">Welcome,</p>
+              <p className="text-sm font-semibold text-white">{user.email}</p>
+            </div>
             <button
               onClick={openLogoutModal}
-              className="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+              className="px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-600 transition font-medium border border-gray-600"
             >
               Logout
             </button>
           </div>
         </div>
-      </nav>
-
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        <div className="flex space-x-4 mb-6">
-          <button
-            onClick={() => setActiveTab("recipes")}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-semibold transition ${
-              activeTab === "recipes"
-                ? "bg-orange-600 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <ChefHat className="w-5 h-5" />
-            <span>Recipes</span>
-            {recipes.filter((r) => !r.is_approved).length > 0 && (
-              <span className="bg-red-500 text-white text-xs px-2 py-1 rounded-full">
-                {recipes.filter((r) => !r.is_approved).length}
-              </span>
-            )}
-          </button>
-
-          <button
-            onClick={() => setActiveTab("users")}
-            className={`flex items-center space-x-2 px-6 py-3 rounded-lg font-semibold transition ${
-              activeTab === "users"
-                ? "bg-orange-600 text-white"
-                : "bg-white text-gray-700 hover:bg-gray-100"
-            }`}
-          >
-            <Users className="w-5 h-5" />
-            <span>Users</span>
-          </button>
-        </div>
-
-        <div className="bg-white rounded-xl shadow-lg p-6">
-          {activeTab === "recipes" && (
-            <>
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setStatusFilter("pending")}
-                    className={`px-4 py-2 rounded-lg font-medium transition ${
-                      statusFilter === "pending"
-                        ? "bg-orange-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    <Clock className="w-4 h-4 inline mr-2" />
-                    Pending
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter("approved")}
-                    className={`px-4 py-2 rounded-lg font-medium transition ${
-                      statusFilter === "approved"
-                        ? "bg-orange-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    <Check className="w-4 h-4 inline mr-2" />
-                    Approved
-                  </button>
-                  <button
-                    onClick={() => setStatusFilter("all")}
-                    className={`px-4 py-2 rounded-lg font-medium transition ${
-                      statusFilter === "all"
-                        ? "bg-orange-600 text-white"
-                        : "bg-gray-100 text-gray-700 hover:bg-gray-200"
-                    }`}
-                  >
-                    All
-                  </button>
-                </div>
-
-                {/* ✅ ADD THIS REFRESH BUTTON */}
-                <button
-                  onClick={fetchRecipes}
-                  disabled={fetchingRecipes}
-                  className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 transition font-medium disabled:opacity-50"
-                >
-                  <svg
-                    className={`w-5 h-5 inline mr-2 ${
-                      fetchingRecipes ? "animate-spin" : ""
-                    }`}
-                    fill="none"
-                    stroke="currentColor"
-                    viewBox="0 0 24 24"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-                    />
-                  </svg>
-                  Refresh
-                </button>
-              </div>
-              <div className="mb-6">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search recipes..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h2 className="text-xl font-bold mb-4 text-gray-800">
-                  Recipe Management
-                </h2>
-                {filteredRecipes.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    No recipes found
-                  </p>
-                ) : (
-                  filteredRecipes.map((recipe) => (
-                    <div
-                      key={recipe.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
-                    >
-                      <div className="flex items-start justify-between">
-                        <div className="flex-1">
-                          <div className="flex items-center gap-3">
-                            {recipe.image_url && (
-                              <img
-                                src={recipe.image_url}
-                                alt={recipe.title}
-                                className="w-16 h-16 object-cover rounded-lg"
-                              />
-                            )}
-                            <div>
-                              <h3 className="font-semibold text-lg text-gray-800">
-                                {recipe.title}
-                              </h3>
-                              <p className="text-sm text-gray-600 mt-1">
-                                By:{" "}
-                                {recipe.users?.username ||
-                                  recipe.users?.email ||
-                                  "Unknown"}
-                              </p>
-                              <p className="text-xs text-gray-500 mt-1">
-                                {new Date(
-                                  recipe.created_at
-                                ).toLocaleDateString()}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="mt-3 flex flex-wrap gap-2">
-                            {recipe.is_approved ? (
-                              <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full">
-                                ✓ Approved
-                              </span>
-                            ) : (
-                              <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-full">
-                                ⏳ Pending
-                              </span>
-                            )}
-                            {recipe.cuisine && (
-                              <span className="px-3 py-1 bg-blue-100 text-blue-700 text-xs font-semibold rounded-full">
-                                {recipe.cuisine}
-                              </span>
-                            )}
-                            {recipe.difficulty_level && (
-                              <span className="px-3 py-1 bg-purple-100 text-purple-700 text-xs font-semibold rounded-full">
-                                {recipe.difficulty_level}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-                        <div className="flex space-x-2">
-                          <button
-                            onClick={() => setSelectedRecipe(recipe)}
-                            className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
-                            title="View Details"
-                          >
-                            <Eye className="w-5 h-5" />
-                          </button>
-                          {!recipe.is_approved ? (
-                            <button
-                              onClick={() => approveRecipe(recipe.id, true)}
-                              className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                              title="Approve"
-                            >
-                              <Check className="w-5 h-5" />
-                            </button>
-                          ) : (
-                            <button
-                              onClick={() => approveRecipe(recipe.id, false)}
-                              className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition"
-                              title="Unapprove"
-                            >
-                              <X className="w-5 h-5" />
-                            </button>
-                          )}
-                          <button
-                            onClick={() => deleteRecipe(recipe.id)}
-                            className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
-                            title="Delete"
-                          >
-                            <Ban className="w-5 h-5" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          )}
-
-        
-
-          {activeTab === "users" && (
-            <>
-              <div className="mb-6">
-                <div className="relative">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
-                  <input
-                    type="text"
-                    placeholder="Search users..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <h2 className="text-xl font-bold mb-4 text-gray-800">
-                  User Management
-                </h2>
-                {filteredUsers.length === 0 ? (
-                  <p className="text-gray-500 text-center py-8">
-                    No users found
-                  </p>
-                ) : (
-                  filteredUsers.map((u) => (
-                    <div
-                      key={u.id}
-                      className="border border-gray-200 rounded-lg p-4 hover:shadow-md transition"
-                    >
-                      <div className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          {u.avatar_url && (
-                            <img
-                              src={u.avatar_url}
-                              alt={u.username}
-                              className="w-12 h-12 object-cover rounded-full"
-                            />
-                          )}
-                          <div className="flex-1">
-                            <h3 className="font-semibold text-gray-800">
-                              {u.username || "No username"}
-                            </h3>
-                            <p className="text-sm text-gray-600">{u.email}</p>
-                            <p className="text-xs text-gray-500 mt-1">
-                              Joined:{" "}
-                              {new Date(u.created_at).toLocaleDateString()}
-                            </p>
-                          </div>
-                        </div>
-                        <div className="flex gap-2">
-                          <button
-                            onClick={() => sendWarning(u.email, u.username || "User")}
-                            disabled={warningUser === u.email}
-                            className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Send Warning Email"
-                          >
-                            {warningUser === u.email ? (
-                              <Clock className="w-5 h-5 animate-spin" />
-                            ) : (
-                              <Mail className="w-5 h-5" />
-                            )}
-                          </button>
-                          <button
-                            onClick={() => deleteUser(u.id, u.email, u.username || "User")}
-                            disabled={deletingUser === u.id}
-                            className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-                            title="Delete User"
-                          >
-                            {deletingUser === u.id ? (
-                              <Clock className="w-5 h-5 animate-spin" />
-                            ) : (
-                              <Trash2 className="w-5 h-5" />
-                            )}
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </>
-          )}
-        </div>
       </div>
+    </nav>
 
-      {/* Recipe Detail Modal */}
-      {selectedRecipe && (
-        <div
-          className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
-          onClick={() => setSelectedRecipe(null)}
-        >
-          <div
-            className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="p-8">
-              <div className="flex justify-between items-start mb-6">
-                <h2 className="text-3xl font-bold text-gray-900 pr-4">
-                  {selectedRecipe.title}
-                </h2>
-                <button
-                  onClick={() => setSelectedRecipe(null)}
-                  className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-all"
-                >
-                  <X className="w-6 h-6" />
-                </button>
-              </div>
-
-              {selectedRecipe.image_url && (
-                <img
-                  src={selectedRecipe.image_url}
-                  alt={selectedRecipe.title}
-                  className="w-full h-72 object-cover rounded-xl mb-6 shadow-md"
+    <div className="max-w-7xl mx-auto px-6 py-8">
+      {/* Dashboard Tab */}
+      {activeTab === "dashboard" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-3xl font-bold text-gray-900">
+              Welcome, <span className="text-orange-600">Admin</span>
+            </h2>
+            <button
+              onClick={fetchRecipes}
+              disabled={fetchingRecipes}
+              className="px-4 py-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition font-medium disabled:opacity-50 flex items-center space-x-2"
+            >
+              <svg
+                className={`w-5 h-5 ${fetchingRecipes ? "animate-spin" : ""}`}
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
                 />
-              )}
+              </svg>
+              <span>Refresh</span>
+            </button>
+          </div>
 
-              <div className="space-y-6">
-                {selectedRecipe.description && (
-                  <div className="bg-gray-50 p-4 rounded-xl">
-                    <h3 className="font-semibold text-gray-800 mb-2 text-lg">
-                      Description
-                    </h3>
-                    <p className="text-gray-600 leading-relaxed">
-                      {selectedRecipe.description}
-                    </p>
-                  </div>
-                )}
-
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  {selectedRecipe.prep_time_minutes && (
-                    <div className="bg-blue-50 p-4 rounded-xl text-center">
-                      <h4 className="font-semibold text-blue-900 text-sm">
-                        Prep Time
-                      </h4>
-                      <p className="text-blue-700 font-bold text-lg mt-1">
-                        {selectedRecipe.prep_time_minutes} min
-                      </p>
-                    </div>
-                  )}
-                  {selectedRecipe.cook_time_minutes && (
-                    <div className="bg-orange-50 p-4 rounded-xl text-center">
-                      <h4 className="font-semibold text-orange-900 text-sm">
-                        Cook Time
-                      </h4>
-                      <p className="text-orange-700 font-bold text-lg mt-1">
-                        {selectedRecipe.cook_time_minutes} min
-                      </p>
-                    </div>
-                  )}
-                  {selectedRecipe.servings && (
-                    <div className="bg-green-50 p-4 rounded-xl text-center">
-                      <h4 className="font-semibold text-green-900 text-sm">
-                        Servings
-                      </h4>
-                      <p className="text-green-700 font-bold text-lg mt-1">
-                        {selectedRecipe.servings}
-                      </p>
-                    </div>
-                  )}
-                  {selectedRecipe.difficulty_level && (
-                    <div className="bg-purple-50 p-4 rounded-xl text-center">
-                      <h4 className="font-semibold text-purple-900 text-sm">
-                        Difficulty
-                      </h4>
-                      <p className="text-purple-700 font-bold text-lg mt-1">
-                        {selectedRecipe.difficulty_level}
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                {selectedRecipe.ingredients && (
-                  <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl">
-                    <h3 className="font-bold text-gray-800 mb-3 text-lg">
-                      Ingredients
-                    </h3>
-                    <ul className="space-y-2">
-                      {selectedRecipe.ingredients
-                        .sort((a, b) => {
-                          if (typeof a === "string" || typeof b === "string")
-                            return 0;
-                          const aOrder = (a as RecipeItem).order || 0;
-                          const bOrder = (b as RecipeItem).order || 0;
-                          return aOrder - bOrder;
-                        })
-                        .map((item, i) => {
-                          const text =
-                            typeof item === "string" ? item : item.item;
-                          return (
-                            <li
-                              key={i}
-                              className="text-gray-700 flex items-start"
-                            >
-                              <span className="text-green-600 mr-2 mt-1">
-                                •
-                              </span>
-                              <span>{text}</span>
-                            </li>
-                          );
-                        })}
-                    </ul>
-                  </div>
-                )}
-
-                {selectedRecipe.instructions && (
-                  <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-xl">
-                    <h3 className="font-bold text-gray-800 mb-3 text-lg">
-                      Instructions
-                    </h3>
-                    <ol className="space-y-3">
-                      {selectedRecipe.instructions
-                        .sort((a, b) => {
-                          if (typeof a === "string" || typeof b === "string")
-                            return 0;
-                          const aOrder = (a as RecipeItem).order || 0;
-                          const bOrder = (b as RecipeItem).order || 0;
-                          return aOrder - bOrder;
-                        })
-                        .map((item, i) => {
-                          const text =
-                            typeof item === "string" ? item : item.item;
-                          return (
-                            <li
-                              key={i}
-                              className="text-gray-700 flex items-start"
-                            >
-                              <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3 flex-shrink-0 mt-0.5">
-                                {i + 1}
-                              </span>
-                              <span className="leading-relaxed">{text}</span>
-                            </li>
-                          );
-                        })}
-                    </ol>
-                  </div>
-                )}
-
-                <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
-                  {!selectedRecipe.is_approved ? (
-                    <button
-                      onClick={() => approveRecipe(selectedRecipe.id, true)}
-                      className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                    >
-                      <Check className="w-5 h-5 inline mr-2" />
-                      Approve Recipe
-                    </button>
-                  ) : (
-                    <button
-                      onClick={() => approveRecipe(selectedRecipe.id, false)}
-                      className="flex-1 bg-gradient-to-r from-yellow-600 to-yellow-700 text-white py-3 rounded-xl hover:from-yellow-700 hover:to-yellow-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                    >
-                      Unapprove Recipe
-                    </button>
-                  )}
-                  <button
-                    onClick={() => deleteRecipe(selectedRecipe.id)}
-                    className="flex-1 bg-gradient-to-r from-red-600 to-red-700 text-white py-3 rounded-xl hover:from-red-700 hover:to-red-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                  >
-                    <Ban className="w-5 h-5 inline mr-2" />
-                    Delete Recipe
-                  </button>
-                </div>
+          {/* Stats Cards */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-6 text-white shadow-lg border border-gray-600 relative overflow-hidden">
+              <div className="absolute bottom-0 right-0 w-20 h-20 bg-orange-500 opacity-10 rounded-tl-full"></div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-gray-300 font-medium">Total Recipes</h3>
+                <ChefHat className="w-8 h-8 text-orange-500" />
               </div>
+              <p className="text-4xl font-bold">{recipes.length}</p>
+              <div className="absolute bottom-3 left-6 w-12 h-1 bg-orange-500 rounded"></div>
+            </div>
+
+            <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-6 text-white shadow-lg border border-gray-600 relative overflow-hidden">
+              <div className="absolute bottom-0 right-0 w-20 h-20 bg-green-500 opacity-10 rounded-tl-full"></div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-gray-300 font-medium">Approved</h3>
+                <Check className="w-8 h-8 text-green-500" />
+              </div>
+              <p className="text-4xl font-bold">
+                {recipes.filter((r) => r.is_approved).length}
+              </p>
+              <div className="absolute bottom-3 left-6 w-12 h-1 bg-green-500 rounded"></div>
+            </div>
+
+            <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-6 text-white shadow-lg border border-gray-600 relative overflow-hidden">
+              <div className="absolute bottom-0 right-0 w-20 h-20 bg-yellow-500 opacity-10 rounded-tl-full"></div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-gray-300 font-medium">Pending</h3>
+                <Clock className="w-8 h-8 text-yellow-500" />
+              </div>
+              <p className="text-4xl font-bold">
+                {recipes.filter((r) => !r.is_approved).length}
+              </p>
+              <div className="absolute bottom-3 left-6 w-12 h-1 bg-yellow-500 rounded"></div>
+            </div>
+
+            <div className="bg-gradient-to-br from-gray-700 to-gray-800 rounded-2xl p-6 text-white shadow-lg border border-gray-600 relative overflow-hidden">
+              <div className="absolute bottom-0 right-0 w-20 h-20 bg-blue-500 opacity-10 rounded-tl-full"></div>
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-gray-300 font-medium">Total Users</h3>
+                <Users className="w-8 h-8 text-blue-500" />
+              </div>
+              <p className="text-4xl font-bold">{users.length}</p>
+              <div className="absolute bottom-3 left-6 w-12 h-1 bg-blue-500 rounded"></div>
+            </div>
+          </div>
+
+          {/* Recent Activity */}
+          <div className="bg-white rounded-2xl shadow-md border border-gray-100 overflow-hidden">
+            <div className="bg-gray-50 px-6 py-4 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">Recent Recipes</h3>
+            </div>
+            <div className="divide-y divide-gray-100">
+              {recipes.slice(0, 5).map((recipe) => (
+                <div key={recipe.id} className="px-6 py-4 hover:bg-gray-50 transition">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-4">
+                      {recipe.image_url && (
+                        <img
+                          src={recipe.image_url}
+                          alt={recipe.title}
+                          className="w-12 h-12 object-cover rounded-lg"
+                        />
+                      )}
+                      <div>
+                        <h4 className="font-semibold text-gray-900">{recipe.title}</h4>
+                        <p className="text-sm text-gray-500">
+                          By: {recipe.users?.username || recipe.users?.email || "Unknown"}
+                        </p>
+                      </div>
+                    </div>
+                    <span
+                      className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                        recipe.is_approved
+                          ? "bg-green-100 text-green-700"
+                          : "bg-yellow-100 text-yellow-700"
+                      }`}
+                    >
+                      {recipe.is_approved ? "Approved" : "Pending"}
+                    </span>
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         </div>
       )}
 
-     
-
-      {showLogoutModal && (
-        <div
-          className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
-          onClick={(e) => {
-            if (e.target === e.currentTarget && !isLoggingOut) {
-              setShowLogoutModal(false);
-            }
-          }}
-        >
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
-            <div className="flex items-start justify-between mb-4">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
-                  <AlertCircle className="text-red-600" size={24} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-bold text-gray-900">
-                    Confirm Logout
-                  </h3>
-                  <p className="text-sm text-gray-500">
-                    Are you sure you want to log out?
-                  </p>
-                </div>
-              </div>
+      {/* Recipes Tab */}
+      {activeTab === "recipes" && (
+        <div className="space-y-6">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+            <h2 className="text-3xl font-bold text-gray-900">Recipe Management</h2>
+            <div className="flex space-x-2">
               <button
-                onClick={() => setShowLogoutModal(false)}
-                disabled={isLoggingOut}
-                className="text-gray-400 hover:text-gray-600"
+                onClick={() => setStatusFilter("pending")}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  statusFilter === "pending"
+                    ? "bg-orange-600 text-white shadow-md"
+                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                }`}
               >
-                <X size={24} />
+                <Clock className="w-4 h-4 inline mr-2" />
+                Pending
+              </button>
+              <button
+                onClick={() => setStatusFilter("approved")}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  statusFilter === "approved"
+                    ? "bg-orange-600 text-white shadow-md"
+                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                <Check className="w-4 h-4 inline mr-2" />
+                Approved
+              </button>
+              <button
+                onClick={() => setStatusFilter("all")}
+                className={`px-4 py-2 rounded-lg font-medium transition ${
+                  statusFilter === "all"
+                    ? "bg-orange-600 text-white shadow-md"
+                    : "bg-white text-gray-700 hover:bg-gray-100 border border-gray-200"
+                }`}
+              >
+                All
               </button>
             </div>
+          </div>
 
-            <p className="text-gray-600 mb-6">
-              You will be signed out of your account.
-            </p>
+          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+            <div className="relative mb-6">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search recipes..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+              />
+            </div>
 
-            <div className="flex gap-3">
-              <button
-                onClick={() => setShowLogoutModal(false)}
-                disabled={isLoggingOut}
-                className="flex-1 bg-gray-100 hover:bg-gray-200 py-3 rounded-xl"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleLogout}
-                disabled={isLoggingOut}
-                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl flex items-center justify-center gap-2"
-              >
-                {isLoggingOut ? "Logging out..." : "Logout"}
-              </button>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">SN</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Recipe Title</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Author</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Cuisine</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Difficulty</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Status</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredRecipes.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-gray-500">
+                        No recipes found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredRecipes.map((recipe, index) => (
+                      <tr
+                        key={recipe.id}
+                        className="border-b border-gray-100 hover:bg-gray-50 transition"
+                      >
+                        <td className="py-4 px-4 text-gray-700">{index + 1}</td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center space-x-3">
+                            {recipe.image_url && (
+                              <img
+                                src={recipe.image_url}
+                                alt={recipe.title}
+                                className="w-12 h-12 object-cover rounded-lg"
+                              />
+                            )}
+                            <span className="font-medium text-gray-900">{recipe.title}</span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-gray-700">
+                          {recipe.users?.username || recipe.users?.email || "Unknown"}
+                        </td>
+                        <td className="py-4 px-4 text-gray-700">{recipe.cuisine || "-"}</td>
+                        <td className="py-4 px-4 text-gray-700">{recipe.difficulty_level || "-"}</td>
+                        <td className="py-4 px-4">
+                          {recipe.is_approved ? (
+                            <span className="px-3 py-1 bg-green-100 text-green-700 text-xs font-semibold rounded-full inline-flex items-center">
+                              <div className="w-2 h-2 bg-green-500 rounded-full mr-2"></div>
+                              Approved
+                            </span>
+                          ) : (
+                            <span className="px-3 py-1 bg-yellow-100 text-yellow-700 text-xs font-semibold rounded-full inline-flex items-center">
+                              <div className="w-2 h-2 bg-yellow-500 rounded-full mr-2"></div>
+                              Pending
+                            </span>
+                          )}
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => setSelectedRecipe(recipe)}
+                              className="p-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition"
+                              title="View"
+                            >
+                              <Eye className="w-4 h-4" />
+                            </button>
+                            {!recipe.is_approved ? (
+                              <button
+                                onClick={() => approveRecipe(recipe.id, true)}
+                                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                title="Approve"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => approveRecipe(recipe.id, false)}
+                                className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition"
+                                title="Unapprove"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            )}
+                            <button
+                              onClick={() => deleteRecipe(recipe.id)}
+                              className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                              title="Delete"
+                            >
+                              <Ban className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Chefs Tab */}
+      {activeTab === "chefs" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-3xl font-bold text-gray-900">Chief Chefs Management</h2>
+            <button
+              onClick={() => setActiveTab("users")}              
+              className="px-4 py-2 cursor-pointer bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition font-medium"
+            >
+              <ChefHat className="w-4 h-4 inline mr-2" />
+              Upgrade User
+            </button>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+            <div className="relative mb-6">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search chiefs..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+              />
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">SN</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Chief Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Email</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Expertise Area</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Specialization</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Experience</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {chiefs.length === 0 ? (
+                    <tr>
+                      <td colSpan={7} className="text-center py-12 text-gray-500">
+                        No chief chefs found. Upgrade users to chief chefs.
+                      </td>
+                    </tr>
+                  ) : (
+                    chiefs
+                      .filter(
+                        (chief) =>
+                          chief.users?.username?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          chief.users?.email?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                          chief.expertise_area?.toLowerCase().includes(searchTerm.toLowerCase())
+                      )
+                      .map((chief, index) => (
+                        <tr
+                          key={chief.id}
+                          className="border-b border-gray-100 hover:bg-gray-50 transition"
+                        >
+                          <td className="py-4 px-4 text-gray-700">{index + 1}</td>
+                          <td className="py-4 px-4">
+                            <div className="flex items-center space-x-3">
+                              {chief.users?.avatar_url ? (
+                                <img
+                                  src={chief.users.avatar_url}
+                                  alt={chief.users?.username || "Chief"}
+                                  className="w-10 h-10 object-cover rounded-full"
+                                />
+                              ) : (
+                                <div className="w-10 h-10 bg-orange-100 rounded-full flex items-center justify-center">
+                                  <span className="text-orange-600 font-semibold">
+                                    {(chief.users?.username || chief.users?.email)?.charAt(0).toUpperCase()}
+                                  </span>
+                                </div>
+                              )}
+                              <span className="font-medium text-gray-900">
+                                {chief.users?.username || "No username"}
+                              </span>
+                            </div>
+                          </td>
+                          <td className="py-4 px-4 text-gray-700">{chief.users?.email}</td>
+                          <td className="py-4 px-4 text-gray-700">{chief.expertise_area || "-"}</td>
+                          <td className="py-4 px-4 text-gray-700">{chief.specialization || "-"}</td>
+                          <td className="py-4 px-4 text-gray-700">
+                            {chief.experience_years ? `${chief.experience_years} years` : "-"}
+                          </td>
+                          <td className="py-4 px-4">
+                            <div className="flex space-x-2">
+                              <button
+                                onClick={() => downgradeChief(chief.id, chief.user_id)}
+                                className="p-2 cursor-pointer bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                                title="Downgrade Chief"
+                              >
+                                <Ban className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </td>
+                        </tr>
+                      ))
+                  )}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Users Tab */}
+      {activeTab === "users" && (
+        <div className="space-y-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-3xl font-bold text-gray-900">User Management</h2>
+          </div>
+
+          <div className="bg-white rounded-2xl shadow-md border border-gray-100 p-6">
+            <div className="relative mb-6">
+              <Search className="absolute left-4 top-1/2 transform -translate-y-1/2 w-5 h-5 text-gray-400" />
+              <input
+                type="text"
+                placeholder="Search users..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="w-full pl-12 pr-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
+              />
+            </div>
+
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">SN</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">User Name</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Email</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Joined</th>
+                    <th className="text-left py-3 px-4 font-semibold text-gray-700 text-sm">Action</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {filteredUsers.length === 0 ? (
+                    <tr>
+                      <td colSpan={5} className="text-center py-12 text-gray-500">
+                        No users found
+                      </td>
+                    </tr>
+                  ) : (
+                    filteredUsers.map((u, index) => (
+                      <tr
+                        key={u.id}
+                        className="border-b border-gray-100 hover:bg-gray-50 transition"
+                      >
+                        <td className="py-4 px-4 text-gray-700">{index + 1}</td>
+                        <td className="py-4 px-4">
+                          <div className="flex items-center space-x-3">
+                            {u.avatar_url ? (
+                              <img
+                                src={u.avatar_url}
+                                alt={u.username}
+                                className="w-10 h-10 object-cover rounded-full"
+                              />
+                            ) : (
+                              <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
+                                <span className="text-blue-600 font-semibold">
+                                  {(u.username || u.email)?.charAt(0).toUpperCase()}
+                                </span>
+                              </div>
+                            )}
+                            <span className="font-medium text-gray-900">
+                              {u.username || "No username"}
+                            </span>
+                          </div>
+                        </td>
+                        <td className="py-4 px-4 text-gray-700">{u.email}</td>
+                        <td className="py-4 px-4 text-gray-700">
+                          {new Date(u.created_at).toLocaleDateString()}
+                        </td>
+                        <td className="py-4 px-4">
+                          <div className="flex space-x-2">
+                            <button
+                              onClick={() => sendWarning(u.email, u.username || "User")}
+                              disabled={warningUser === u.email}
+                              className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition disabled:opacity-50"
+                              title="Send Warning"
+                            >
+                              {warningUser === u.email ? (
+                                <Clock className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Mail className="w-4 h-4" />
+                              )}
+                            </button>
+                            <button
+                              onClick={() => deleteUser(u.id, u.email, u.username || "User")}
+                              disabled={deletingUser === u.id}
+                              className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition disabled:opacity-50"
+                              title="Delete"
+                            >
+                              {deletingUser === u.id ? (
+                                <Clock className="w-4 h-4 animate-spin" />
+                              ) : (
+                                <Trash2 className="w-4 h-4" />
+                              )}
+                            </button>
+                            <button
+                                onClick={() => {
+                                  setSelectedUser(u);
+                                  setShowUpgradeModal(true);
+                                }}
+                                className="p-2 bg-orange-600 text-white rounded-lg hover:bg-orange-700 transition"
+                                title="Upgrade to Chief"
+                            >
+                              <ChefHat className="w-4 h-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
             </div>
           </div>
         </div>
       )}
     </div>
-  );
+
+    {/* Recipe Detail Modal */}
+    {selectedRecipe && (
+      <div
+        className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+        onClick={() => setSelectedRecipe(null)}
+      >
+        <div
+          className="bg-white rounded-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto shadow-2xl"
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="p-8">
+            <div className="flex justify-between items-start mb-6">
+              <h2 className="text-3xl font-bold text-gray-900 pr-4">
+                {selectedRecipe.title}
+              </h2>
+              <button
+                onClick={() => setSelectedRecipe(null)}
+                className="text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-full p-2 transition-all"
+              >
+                <X className="w-6 h-6" />
+              </button>
+            </div>
+
+            {selectedRecipe.image_url && (
+              <img
+                src={selectedRecipe.image_url}
+                alt={selectedRecipe.title}
+                className="w-full h-72 object-cover rounded-xl mb-6 shadow-md"
+              />
+            )}
+
+            <div className="space-y-6">
+              {selectedRecipe.description && (
+                <div className="bg-gray-50 p-4 rounded-xl">
+                  <h3 className="font-semibold text-gray-800 mb-2 text-lg">
+                    Description
+                  </h3>
+                  <p className="text-gray-600 leading-relaxed">
+                    {selectedRecipe.description}
+                  </p>
+                </div>
+              )}
+
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                {selectedRecipe.prep_time_minutes && (
+                  <div className="bg-blue-50 p-4 rounded-xl text-center border border-blue-100">
+                    <h4 className="font-semibold text-blue-900 text-sm">
+                      Prep Time
+                    </h4>
+                    <p className="text-blue-700 font-bold text-lg mt-1">
+                      {selectedRecipe.prep_time_minutes} min
+                    </p>
+                  </div>
+                )}
+                {selectedRecipe.cook_time_minutes && (
+                  <div className="bg-orange-50 p-4 rounded-xl text-center border border-orange-100">
+                    <h4 className="font-semibold text-orange-900 text-sm">
+                      Cook Time
+                    </h4>
+                    <p className="text-orange-700 font-bold text-lg mt-1">
+                      {selectedRecipe.cook_time_minutes} min
+                    </p>
+                  </div>
+                )}
+                {selectedRecipe.servings && (
+                  <div className="bg-green-50 p-4 rounded-xl text-center border border-green-100">
+                    <h4 className="font-semibold text-green-900 text-sm">
+                      Servings
+                    </h4>
+                    <p className="text-green-700 font-bold text-lg mt-1">
+                      {selectedRecipe.servings}
+                    </p>
+                  </div>
+                )}
+                {selectedRecipe.difficulty_level && (
+                  <div className="bg-purple-50 p-4 rounded-xl text-center border border-purple-100">
+                    <h4 className="font-semibold text-purple-900 text-sm">
+                      Difficulty
+                    </h4>
+                    <p className="text-purple-700 font-bold text-lg mt-1">
+                      {selectedRecipe.difficulty_level}
+                    </p>
+                  </div>
+                )}
+              </div>
+
+              {selectedRecipe.ingredients && (
+                <div className="bg-gradient-to-br from-green-50 to-emerald-50 p-5 rounded-xl border border-green-100">
+                  <h3 className="font-bold text-gray-800 mb-3 text-lg">
+                    Ingredients
+                  </h3>
+                  <ul className="space-y-2">
+                    {selectedRecipe.ingredients
+                      .sort((a, b) => {
+                        if (typeof a === "string" || typeof b === "string")
+                          return 0;
+                        const aOrder = (a as RecipeItem).order || 0;
+                        const bOrder = (b as RecipeItem).order || 0;
+                        return aOrder - bOrder;
+                      })
+                      .map((item, i) => {
+                        const text =
+                          typeof item === "string" ? item : item.item;
+                        return (
+                          <li
+                            key={i}
+                            className="text-gray-700 flex items-start"
+                          >
+                            <span className="text-green-600 mr-2 mt-1">
+                              •
+                            </span>
+                            <span>{text}</span>
+                          </li>
+                        );
+                      })}
+                  </ul>
+                </div>
+              )}
+
+              {selectedRecipe.instructions && (
+                <div className="bg-gradient-to-br from-blue-50 to-indigo-50 p-5 rounded-xl border border-blue-100">
+                  <h3 className="font-bold text-gray-800 mb-3 text-lg">
+                    Instructions
+                  </h3>
+                  <ol className="space-y-3">
+                    {selectedRecipe.instructions
+                      .sort((a, b) => {
+                        if (typeof a === "string" || typeof b === "string")
+                          return 0;
+                        const aOrder = (a as RecipeItem).order || 0;
+                        const bOrder = (b as RecipeItem).order || 0;
+                        return aOrder - bOrder;
+                      })
+                      .map((item, i) => {
+                        const text =
+                          typeof item === "string" ? item : item.item;
+                        return (
+                          <li
+                            key={i}
+                            className="text-gray-700 flex items-start"
+                          >
+                            <span className="bg-blue-600 text-white rounded-full w-6 h-6 flex items-center justify-center text-sm font-semibold mr-3 flex-shrink-0 mt-0.5">
+                              {i + 1}
+                            </span>
+                            <span className="leading-relaxed">{text}</span>
+                          </li>
+                        );
+                      })}
+                  </ol>
+                </div>
+              )}
+
+              <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
+                {!selectedRecipe.is_approved ? (
+                  <button
+                    onClick={() => approveRecipe(selectedRecipe.id, true)}
+                    className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  >
+                    <Check className="w-5 h-5 inline mr-2" />
+                    Approve Recipe
+                  </button>
+                ) : (
+                  <button
+                    onClick={() => approveRecipe(selectedRecipe.id, false)}
+                    className="flex-1 bg-gradient-to-r from-yellow-600 to-yellow-700 text-white py-3 rounded-xl hover:from-yellow-700 hover:to-yellow-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                  >
+                    Unapprove Recipe
+                  </button>
+                )}
+                <button
+                  onClick={() => deleteRecipe(selectedRecipe.id)}
+                  className="flex-1 bg-gradient-to-r from-red-600 to-red-700 text-white py-3 rounded-xl hover:from-red-700 hover:to-red-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                >
+                  <Ban className="w-5 h-5 inline mr-2" />
+                  Delete Recipe
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    )}
+
+    {/* Logout Modal */}
+    {showLogoutModal && (
+      <div
+        className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+        onClick={(e) => {
+          if (e.target === e.currentTarget && !isLoggingOut) {
+            setShowLogoutModal(false);
+          }
+        }}
+      >
+        <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+          <div className="flex items-start justify-between mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                <AlertCircle className="text-red-600" size={24} />
+              </div>
+              <div>
+                <h3 className="text-xl font-bold text-gray-900">
+                  Confirm Logout
+                </h3>
+                <p className="text-sm text-gray-500">
+                  Are you sure you want to log out?
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              disabled={isLoggingOut}
+              className="text-gray-400 hover:text-gray-600"
+            >
+              <X size={24} />
+            </button>
+          </div>
+
+          <p className="text-gray-600 mb-6">
+            You will be signed out of your account.
+          </p>
+
+          <div className="flex gap-3">
+            <button
+              onClick={() => setShowLogoutModal(false)}
+              disabled={isLoggingOut}
+              className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium transition"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleLogout}
+              disabled={isLoggingOut}
+              className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl flex items-center justify-center gap-2 font-medium transition"
+            >
+              {isLoggingOut ? "Logging out..." : "Logout"}
+            </button>
+          </div>
+        </div>
+      </div>
+    )}
+    {/* Upgrade to Chief Modal */}
+{showUpgradeModal && selectedUser && (
+  <div
+    className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50"
+    onClick={() => setShowUpgradeModal(false)}
+  >
+    <div
+      className="bg-white rounded-2xl max-w-md w-full p-6"
+      onClick={(e) => e.stopPropagation()}
+    >
+      <div className="flex justify-between items-start mb-6">
+        <div>
+          <h2 className="text-2xl font-bold text-gray-900">Upgrade to Chief</h2>
+          <p className="text-sm text-gray-500 mt-1">
+            {selectedUser.username || selectedUser.email}
+          </p>
+        </div>
+        <button
+          onClick={() => setShowUpgradeModal(false)}
+          className="text-gray-400 hover:text-gray-600"
+        >
+          <X className="w-6 h-6" />
+        </button>
+      </div>
+
+      <div className="space-y-4">
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Expertise Area <span className="text-red-500">*</span>
+          </label>
+          <select
+            value={expertiseArea}
+            onChange={(e) => setExpertiseArea(e.target.value)}
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none"
+          >
+            <option value="">Select expertise area</option>
+            <option value="Nepali">Nepali Cuisine</option>
+            <option value="Italian">Italian Cuisine</option>
+            <option value="Chinese">Chinese Cuisine</option>
+            <option value="Indian">Indian Cuisine</option>
+            <option value="Mexican">Mexican Cuisine</option>
+            <option value="French">French Cuisine</option>
+            <option value="Japanese">Japanese Cuisine</option>
+            <option value="Thai">Thai Cuisine</option>
+            <option value="Mediterranean">Mediterranean Cuisine</option>
+            <option value="American">American Cuisine</option>
+            <option value="Baking">Baking & Pastry</option>
+            <option value="Desserts">Desserts</option>
+            <option value="Vegan">Vegan Cuisine</option>
+            <option value="Other">Other</option>
+          </select>
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Specialization
+          </label>
+          <input
+            type="text"
+            value={specialization}
+            onChange={(e) => setSpecialization(e.target.value)}
+            placeholder="e.g., Pasta Making, Sushi, BBQ"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Experience (Years)
+          </label>
+          <input
+            type="number"
+            value={experienceYears}
+            onChange={(e) => setExperienceYears(e.target.value)}
+            placeholder="Years of cooking experience"
+            min="0"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none"
+          />
+        </div>
+
+        <div>
+          <label className="block text-sm font-semibold text-gray-700 mb-2">
+            Certification
+          </label>
+          <input
+            type="text"
+            value={certification}
+            onChange={(e) => setCertification(e.target.value)}
+            placeholder="e.g., Culinary Institute of America"
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none"
+          />
+        </div>
+      </div>
+
+      <div className="flex gap-3 mt-6">
+        <button
+          onClick={() => setShowUpgradeModal(false)}
+          className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium transition"
+        >
+          Cancel
+        </button>
+        <button
+          onClick={upgradeToChief}
+          className="flex-1 bg-orange-600 hover:bg-orange-700 text-white py-3 rounded-xl font-medium transition"
+        >
+          Upgrade to Chief
+        </button>
+      </div>
+    </div>
+  </div>
+)}
+  </div>
+);
 }

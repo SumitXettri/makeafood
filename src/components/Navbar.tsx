@@ -16,6 +16,7 @@ import {
   BookOpen,
   LayoutDashboard,
   Shield,
+  ChefHat,
 } from "lucide-react";
 import Image from "next/image";
 import AuthModal from "./AuthModal";
@@ -28,6 +29,7 @@ export default function Navbar() {
   const [query, setQuery] = useState("");
   const [username, setUsername] = useState<string | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isChief, setIsChief] = useState(false);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchOpen, setSearchOpen] = useState(false);
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
@@ -78,6 +80,7 @@ export default function Navbar() {
     if (!authData.user) {
       setUsername(null);
       setIsAdmin(false);
+      setIsChief(false);
       return;
     }
 
@@ -92,6 +95,21 @@ export default function Navbar() {
 
     // Check if username is "admin01" to determine admin status
     setIsAdmin(fetchedUsername === "Admin01");
+
+    // Check chief status from `chiefs` table
+    try {
+      const { data: chiefData } = await supabase
+        .from("chiefs")
+        .select("id")
+        .eq("user_id", authData.user.id)
+        .eq("is_active", true)
+        .single();
+
+      setIsChief(Boolean(chiefData));
+    } catch (err) {
+      setIsChief(false);
+      console.error("Error checking chief status:", err);
+    }
   };
 
   useEffect(() => {
@@ -299,8 +317,6 @@ export default function Navbar() {
                           <span className="font-medium">My Recipes</span>
                         </Link>
 
-                       
-
                         {isAdmin && (
                           <>
                             <div className="border-t border-gray-200 my-2"></div>
@@ -311,6 +327,19 @@ export default function Navbar() {
                             >
                               <Shield size={18} />
                               <span className="font-medium">Admin Panel</span>
+                            </Link>
+                          </>
+                        )}
+                        {isChief && (
+                          <>
+                            <div className="border-t border-gray-200 my-2"></div>
+                            <Link
+                              href="/chief-panel"
+                              onClick={() => setDropdownOpen(false)}
+                              className="flex items-center gap-3 px-4 py-2.5 text-indigo-700 hover:bg-indigo-50 transition-colors"
+                            >
+                              <ChefHat size={18} />
+                              <span className="font-medium">Chief Panel</span>
                             </Link>
                           </>
                         )}
@@ -457,6 +486,16 @@ export default function Navbar() {
                     >
                       <Shield size={16} />
                       <span>Admin Panel</span>
+                    </Link>
+                  )}
+                  {isChief && (
+                    <Link
+                      href="/chief-panel"
+                      className="flex items-center gap-2 px-4 py-2.5 text-indigo-700 hover:bg-indigo-50 rounded-lg transition"
+                      onClick={() => setMobileMenuOpen(false)}
+                    >
+                      <ChefHat size={16} />
+                      <span>Chief Panel</span>
                     </Link>
                   )}
                   <button

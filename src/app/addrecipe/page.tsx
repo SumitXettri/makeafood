@@ -197,14 +197,7 @@ export default function SubmitRecipePage() {
     // Prepare instructions as simple JSONB array
     const instructionsJsonb = validInstructions.map((inst) => inst.trim());
 
-    console.log(
-      "Ingredients JSONB:",
-      JSON.stringify(ingredientsJsonb, null, 2)
-    );
-    console.log(
-      "Instructions JSONB:",
-      JSON.stringify(instructionsJsonb, null, 2)
-    );
+    
 
     // Insert recipe with JSONB formatted data
     const { data: recipeData, error: insertError } = await supabase
@@ -365,13 +358,28 @@ export default function SubmitRecipePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cuisine Type
                   </label>
-                  <input
-                    type="text"
-                    value={cuisine}
+                 
+                  <select
+            value={cuisine}
                     onChange={(e) => setCuisine(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition"
-                    placeholder="e.g. Italian, Mexican, Indian"
-                  />
+            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none"
+          >
+            <option value="">Select cuisine type</option>
+            <option value="Nepali">Nepali Cuisine</option>
+            <option value="Italian">Italian Cuisine</option>
+            <option value="Chinese">Chinese Cuisine</option>
+            <option value="Indian">Indian Cuisine</option>
+            <option value="Mexican">Mexican Cuisine</option>
+            <option value="French">French Cuisine</option>
+            <option value="Japanese">Japanese Cuisine</option>
+            <option value="Thai">Thai Cuisine</option>
+            <option value="Mediterranean">Mediterranean Cuisine</option>
+            <option value="American">American Cuisine</option>
+            <option value="Baking">Baking & Pastry</option>
+            <option value="Desserts">Desserts</option>
+            <option value="Vegan">Vegan Cuisine</option>
+            <option value="Other">Other</option>
+          </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
