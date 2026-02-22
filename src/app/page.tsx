@@ -7,8 +7,6 @@ import {
   Clock,
   Star,
   ChevronRight,
-  Leaf,
-  Pizza,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import Navbar from "@/components/Navbar";

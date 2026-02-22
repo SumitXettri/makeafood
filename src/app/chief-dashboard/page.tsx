@@ -33,8 +33,8 @@ interface Recipe {
   prep_time_minutes: number | null;
   cook_time_minutes: number | null;
   servings: number | null;
-  ingredients: any;
-  instructions: any;
+  ingredients: Array<string | Record<string, unknown>>;
+  instructions: Array<string | Record<string, unknown>>;
   is_public: boolean;
   users: {
     id: string;
@@ -57,55 +57,57 @@ function ChiefDashboard() {
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [activeTab, setActiveTab] = useState<"review" | "myrecipes">("review");
 
+  console.log(setSearchTerm, setStatusFilter);
+
   useEffect(() => {
+    const checkChiefAuth = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          window.location.href = "/login";
+          return;
+        }
+
+        // Get user profile
+        const { data: profile } = await supabase
+          .from("users")
+          .select("*")
+          .eq("id", user.id)
+          .single();
+
+        if (profile) {
+          setCurrentUser(profile);
+        }
+
+        // Check if user is a chief
+        const { data: chief, error } = await supabase
+          .from("chiefs")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("is_active", true)
+          .single();
+
+        if (error || !chief) {
+          alert("You don't have chief access!");
+          window.location.href = "/dashboard";
+          return;
+        }
+
+        setChiefData(chief);
+        await fetchRecipesToReview(chief.expertise_area);
+        await fetchMyRecipes(user.id);
+      } catch (error) {
+        console.error("Auth error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     checkChiefAuth();
   }, []);
-
-  const checkChiefAuth = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        window.location.href = "/login";
-        return;
-      }
-
-      // Get user profile
-      const { data: profile } = await supabase
-        .from("users")
-        .select("*")
-        .eq("id", user.id)
-        .single();
-
-      if (profile) {
-        setCurrentUser(profile);
-      }
-
-      // Check if user is a chief
-      const { data: chief, error } = await supabase
-        .from("chiefs")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("is_active", true)
-        .single();
-
-      if (error || !chief) {
-        alert("You don't have chief access!");
-        window.location.href = "/dashboard";
-        return;
-      }
-
-      setChiefData(chief);
-      await fetchRecipesToReview(chief.expertise_area);
-      await fetchMyRecipes(user.id);
-    } catch (error) {
-      console.error("Auth error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchRecipesToReview = async (expertiseArea: string) => {
     try {
@@ -220,18 +222,18 @@ function ChiefDashboard() {
     }
   };
 
-  const filteredRecipes = recipes.filter((recipe) => {
-    const matchesSearch =
-      recipe.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      recipe.users?.username?.toLowerCase().includes(searchTerm.toLowerCase());
+  // const filteredRecipes = recipes.filter((recipe) => {
+  //   const matchesSearch =
+  //     recipe.title?.toLowerCase().includes(searchTerm.toLowerCase()) ||
+  //     recipe.users?.username?.toLowerCase().includes(searchTerm.toLowerCase());
 
-    const matchesStatus =
-      statusFilter === "all" ||
-      (statusFilter === "pending" && !recipe.is_approved) ||
-      (statusFilter === "approved" && recipe.is_approved);
+  //   const matchesStatus =
+  //     statusFilter === "all" ||
+  //     (statusFilter === "pending" && !recipe.is_approved) ||
+  //     (statusFilter === "approved" && recipe.is_approved);
 
-    return matchesSearch && matchesStatus;
-  });
+  //   return matchesSearch && matchesStatus;
+  // });
 
   const stats = {
     totalToReview: recipes.length,
@@ -356,7 +358,7 @@ function ChiefDashboard() {
             {myRecipes.length === 0 ? (
               <div className="text-center py-12">
                 <p className="text-gray-500 mb-4">
-                  You haven't created any recipes yet
+                  You haven&apos;t created any recipes yet
                 </p>
                 <a
                   href="/addrecipe"

@@ -231,7 +231,7 @@ const [certification, setCertification] = useState("");
     }
   }, [statusFilter, activeTab, user?.email]);
 
-  const use = useCallback(async () => {
+  const fetchUsers = useCallback(async () => {
     try {
       const { data, error } = await supabase
         .from("users")
@@ -278,7 +278,7 @@ const [certification, setCertification] = useState("");
       if (dbError) throw dbError;
 
       // Refresh users list
-      await use();
+      await fetchUsers();
       alert(`User ${username} has been deleted successfully.`);
     } catch (err: unknown) {
       console.error("Error deleting user:", err);
@@ -418,7 +418,7 @@ const downgradeChief = async (chiefId: string, userId: string) => {
         fetchRecipes();
       }
       if (activeTab === "users") {
-        use();
+        fetchUsers();
       }
       if (activeTab === "chefs") {
         fetchChiefs();
@@ -426,7 +426,7 @@ const downgradeChief = async (chiefId: string, userId: string) => {
     } else {
       console.log("⚠️ No user logged in, skipping fetch");
     }
-  }, [user, activeTab, statusFilter, fetchRecipes, use, fetchChiefs]);
+  }, [user, activeTab, statusFilter, fetchRecipes, fetchUsers, fetchChiefs]);
  
   // Real-time subscription
   useEffect(() => {

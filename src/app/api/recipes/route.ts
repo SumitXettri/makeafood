@@ -9,7 +9,7 @@ import {
 
 const supabase = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
 );
 
 // 🇳🇵 GitHub URL for Nepali recipes JSON (use raw.githubusercontent.com)
@@ -47,21 +47,6 @@ interface MealDBRecipe {
   strTags?: string;
   [key: `strIngredient${number}`]: string | undefined;
   [key: `strMeasure${number}`]: string | undefined;
-}
-
-interface RecipeAPIComRecipe {
-  id: number;
-  title: string;
-  image: string;
-  description?: string;
-  instructions?: string;
-  ingredients?: string[];
-  prep_time_minutes?: number;
-  cook_time_minutes?: number;
-  servings?: number;
-  difficulty?: string;
-  cuisine?: string;
-  tags?: string[];
 }
 
 interface DatabaseRecipe {
@@ -153,7 +138,7 @@ function parseIngredients(ingredients: unknown): string[] {
 // 🇳🇵 NEW: Fetch Nepali recipes from GitHub
 async function fetchNepaliRecipes(
   query?: string,
-  category?: string | null
+  category?: string | null,
 ): Promise<UnifiedRecipe[]> {
   try {
     const now = Date.now();
@@ -168,7 +153,7 @@ async function fetchNepaliRecipes(
       if (!response.ok) {
         console.error(
           "❌ Failed to fetch Nepali recipes from GitHub:",
-          response.statusText
+          response.statusText,
         );
         return [];
       }
@@ -191,24 +176,24 @@ async function fetchNepaliRecipes(
         (meal) =>
           meal.strMeal.toLowerCase().includes(q) ||
           meal.strTags?.toLowerCase().includes(q) ||
-          meal.strCategory?.toLowerCase().includes(q)
+          meal.strCategory?.toLowerCase().includes(q),
       );
       console.log(
         `🔎 Filtered by query "${query}":`,
         filtered.length,
-        "recipes"
+        "recipes",
       );
     }
 
     // Filter by category
     if (category) {
       filtered = filtered.filter(
-        (meal) => meal.strCategory?.toLowerCase() === category.toLowerCase()
+        (meal) => meal.strCategory?.toLowerCase() === category.toLowerCase(),
       );
       console.log(
         `🏷️ Filtered by category "${category}":`,
         filtered.length,
-        "recipes"
+        "recipes",
       );
     }
 
@@ -224,7 +209,7 @@ async function fetchNepaliRecipes(
 
         if (ingredient && ingredient.trim()) {
           ingredients.push(
-            `${measure?.trim() || ""} ${ingredient.trim()}`.trim()
+            `${measure?.trim() || ""} ${ingredient.trim()}`.trim(),
           );
         }
       }
@@ -261,7 +246,7 @@ async function fetchDatabaseRecipes(
   difficulty?: string | null,
   country?: string | null,
   mealType?: string | null,
-  diet?: string | null
+  diet?: string | null,
 ): Promise<UnifiedRecipe[]> {
   try {
     let supabaseQuery = supabase
@@ -272,7 +257,7 @@ async function fetchDatabaseRecipes(
 
     if (query) {
       supabaseQuery = supabaseQuery.or(
-        `title.ilike.%${query}%,description.ilike.%${query}%,tags.cs.{${query}}`
+        `title.ilike.%${query}%,description.ilike.%${query}%,tags.cs.{${query}}`,
       );
     }
 
@@ -282,7 +267,7 @@ async function fetchDatabaseRecipes(
 
     if (country) {
       supabaseQuery = supabaseQuery.or(
-        `cuisine.ilike.%${country}%,tags.cs.{${country}}`
+        `cuisine.ilike.%${country}%,tags.cs.{${country}}`,
       );
     }
 
@@ -337,7 +322,7 @@ function calculateScore(
   r: UnifiedRecipe,
   q: string,
   genre?: string | null,
-  difficulty?: string | null
+  difficulty?: string | null,
 ): number {
   let score = 0;
 
@@ -360,7 +345,7 @@ function calculateScore(
 
   if (q && r.tags) {
     const matchingTags = r.tags.filter((tag) =>
-      tag.toLowerCase().includes(q.toLowerCase())
+      tag.toLowerCase().includes(q.toLowerCase()),
     );
     score += matchingTags.length * 1.5;
   }
@@ -384,7 +369,7 @@ function rankRecipes(
   recipes: UnifiedRecipe[],
   query: string,
   genre?: string | null,
-  difficulty?: string | null
+  difficulty?: string | null,
 ): UnifiedRecipe[] {
   const q = query.toLowerCase();
 
@@ -486,7 +471,9 @@ export async function GET(req: NextRequest) {
         cook_time_minutes: (s as Partial<UnifiedRecipe>).cook_time_minutes ?? 0,
         servings: (s as Partial<UnifiedRecipe>).servings ?? 0,
         difficulty_level: s.difficulty_level ?? "",
-        youtube_link: (s as Partial<UnifiedRecipe>).youtube_link ?? getYouTubeSearchLink(s.title),
+        youtube_link:
+          (s as Partial<UnifiedRecipe>).youtube_link ??
+          getYouTubeSearchLink(s.title),
         tags: (s as Partial<UnifiedRecipe>).tags ?? undefined,
       }));
 
@@ -535,7 +522,7 @@ export async function GET(req: NextRequest) {
 async function fetchSpoonacularRecipes(
   query: string,
   genre: string | null,
-  apiKey?: string
+  apiKey?: string,
 ): Promise<UnifiedRecipe[]> {
   try {
     const spoonUrl =
@@ -549,7 +536,7 @@ async function fetchSpoonacularRecipes(
               instructionsRequired: "true",
               fillIngredients: "true",
               apiKey: apiKey || "",
-            }
+            },
           ).toString()}`
         : `https://api.spoonacular.com/recipes/random?number=4&apiKey=${apiKey}`;
 
@@ -572,7 +559,7 @@ async function fetchSpoonacularRecipes(
         "Description coming soon.",
       ingredients:
         r.extendedIngredients?.map((ing) =>
-          `${ing.amount} ${ing.unit} ${ing.name}`.trim()
+          `${ing.amount} ${ing.unit} ${ing.name}`.trim(),
         ) || [],
       prep_time_minutes: r.preparationMinutes || 0,
       cook_time_minutes: r.cookingMinutes || 0,
@@ -593,7 +580,7 @@ async function fetchMealDBRecipes(query: string): Promise<UnifiedRecipe[]> {
 
     if (query) {
       const mealUrl = `https://www.themealdb.com/api/json/v1/1/search.php?s=${encodeURIComponent(
-        query
+        query,
       )}`;
       const mealRes = await fetch(mealUrl);
       mealData = (await mealRes.json()) as { meals?: MealDBRecipe[] };
@@ -619,7 +606,7 @@ async function fetchMealDBRecipes(query: string): Promise<UnifiedRecipe[]> {
         const measure = m[`strMeasure${i}`];
         if (ingredient && ingredient.trim()) {
           ingredients.push(
-            `${measure?.trim() || ""} ${ingredient.trim()}`.trim()
+            `${measure?.trim() || ""} ${ingredient.trim()}`.trim(),
           );
         }
       }

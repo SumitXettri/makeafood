@@ -11,7 +11,6 @@ import {
   Search,
   AlertCircle,
   Ban,
-  LogOut,
 } from "lucide-react";
 
 interface Recipe {
@@ -62,44 +61,44 @@ export default function ChiefPanel() {
   const [showLogoutModal, setShowLogoutModal] = useState(false);
 
   useEffect(() => {
+    const checkAuth = async () => {
+      try {
+        const {
+          data: { user },
+        } = await supabase.auth.getUser();
+
+        if (!user) {
+          window.location.href = "/"; // Redirect to login
+          return;
+        }
+
+        setUser(user);
+
+        // Check if user is a chief
+        const { data: chief, error } = await supabase
+          .from("chiefs")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("is_active", true)
+          .single();
+
+        if (error || !chief) {
+          alert("You don't have chief access!");
+          window.location.href = "/"; // Redirect to home
+          return;
+        }
+
+        setChiefData(chief);
+        fetchRecipes(chief.expertise_area);
+      } catch (error) {
+        console.error("Auth error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
     checkAuth();
   }, []);
-
-  const checkAuth = async () => {
-    try {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-
-      if (!user) {
-        window.location.href = "/"; // Redirect to login
-        return;
-      }
-
-      setUser(user);
-
-      // Check if user is a chief
-      const { data: chief, error } = await supabase
-        .from("chiefs")
-        .select("*")
-        .eq("user_id", user.id)
-        .eq("is_active", true)
-        .single();
-
-      if (error || !chief) {
-        alert("You don't have chief access!");
-        window.location.href = "/"; // Redirect to home
-        return;
-      }
-
-      setChiefData(chief);
-      fetchRecipes(chief.expertise_area);
-    } catch (error) {
-      console.error("Auth error:", error);
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchRecipes = async (expertiseArea: string) => {
     try {
