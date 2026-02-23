@@ -1,10 +1,13 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
 import { User, ChefHat, Sparkles } from "lucide-react";
 import HistorySidebar from "@/components/HistorySidebar";
 import HeaderNavbar from "@/components/HeaderNavbar";
 import RecipeDisplayCard from "@/components/RecipeDisplayCard";
 import BottomInputBar from "@/components/BottomInputBar";
+import AuthModal from "@/components/AuthModal";
+import { supabase } from "@/lib/supabaseClient";
 
 // --- TYPE DEFINITIONS ---
 interface Recipe {
@@ -22,47 +25,9 @@ interface ChatMessage {
   content: string;
 }
 
-// --- MOCK API ---
-const mockGenerateRecipe = async (ingredients: string[]): Promise<Recipe> => {
-  await new Promise((resolve) => setTimeout(resolve, 1500));
-  const ingredientList = ingredients.map((i) => i.toLowerCase().trim());
-  const keyIngredients = ingredientList.slice(0, 3).join(", ");
-  const baseTitle = keyIngredients
-    .split(", ")
-    .map((i) => i.charAt(0).toUpperCase() + i.slice(1))
-    .join(" & ");
-
-  return {
-    title: `${baseTitle} Stir-Fry with Spicy Peanut Sauce`,
-    ingredients: [
-      "300g Chicken Breast or Tofu",
-      "2 tbsp Peanut Butter",
-      "1 tbsp Soy Sauce (or Tamari)",
-      "1 tsp Honey or Maple Syrup",
-      "1/2 tsp Sriracha (or to taste)",
-      "1 cup Mixed Vegetables (e.g., bell pepper, broccoli)",
-      "1 cup Cooked Rice or Noodles",
-      "1/4 cup Chopped Peanuts",
-    ],
-    instructions: [
-      "Prepare the peanut sauce by whisking together peanut butter, soy sauce, honey, sriracha, and 3 tbsp of hot water until smooth.",
-      "Chop the chicken or tofu and mixed vegetables into bite-sized pieces.",
-      "Heat oil in a wok or large pan. Stir-fry the protein until cooked through (about 5-7 minutes).",
-      "Add the mixed vegetables and stir-fry for 3 minutes until tender-crisp.",
-      "Pour the peanut sauce over the mixture and toss until everything is well-coated and heated through.",
-      "Serve immediately over rice or noodles and garnish with chopped peanuts.",
-    ],
-    prep_time: "20 minutes",
-    servings: "2 servings",
-    difficulty: "Medium",
-    youtube_link: `https://www.youtube.com/results?search_query=${encodeURIComponent(
-      `${baseTitle} stir fry recipe`
-    )}`,
-  };
-};
-
 // --- MAIN COMPONENT: RecipeGenerator (State Manager) ---
 export default function RecipeGenerator() {
+  const router = useRouter();
   const [ingredients, setIngredients] = useState<string[]>([""]);
   const [recipe, setRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState(false);
@@ -73,6 +38,30 @@ export default function RecipeGenerator() {
   const [chatHistory, setChatHistory] = useState<ChatMessage[]>([]);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [sidebarWidth, setSidebarWidth] = useState(280);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(true);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [showAuthModal, setShowAuthModal] = useState(false);
+  const sidebarRefreshRef = useRef<(() => void) | null>(null);
+
+  useEffect(() => {
+    const getUser = async () => {
+      const {
+        data: { user },
+      } = await supabase.auth.getUser();
+
+      if (!user) {
+        setIsLoggedIn(false);
+        setIsChecking(false);
+        return;
+      }
+
+      setUserId(user.id);
+      setIsLoggedIn(true);
+      setIsChecking(false);
+    };
+    getUser();
+  }, [router]);
 
   const handleIngredientChange = (index: number, value: string) => {
     const newIngredients = [...ingredients];
@@ -99,6 +88,7 @@ export default function RecipeGenerator() {
     setChatHistory([]);
     setSidebarOpen(false);
   };
+
   const handleGenerate = async () => {
     if (loading) return;
     window.speechSynthesis.cancel();
@@ -119,86 +109,31 @@ export default function RecipeGenerator() {
     setRecipe(null);
 
     try {
-      const response = await fetch("/api/recipe", {
+      const response = await fetch("/api/generate-recipe", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify({
-          ingredients: validIngredients.join(", "),
-        }),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ingredients: validIngredients, userId }), // ← send userId
       });
 
-      let data: Recipe;
-      let usedFallback = false;
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error);
 
-      if (response.status === 429) {
-        // Quota exceeded - use mock fallback
-        console.log("⚠️ API quota exceeded, using mock recipe generator");
-        data = await mockGenerateRecipe(validIngredients);
-        usedFallback = true;
-      } else if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || "Failed to generate recipe");
-      } else {
-        data = await response.json();
-      }
-
-      // Add optional fields with fallback values
-      const completeRecipe: Recipe = {
-        title: data.title,
-        ingredients: data.ingredients,
-        instructions: data.instructions,
-        prep_time: data.prep_time || "30 minutes",
-        servings: data.servings || "2-4 servings",
-        difficulty: data.difficulty || "Medium",
-        youtube_link:
-          data.youtube_link ||
-          `https://www.youtube.com/results?search_query=${encodeURIComponent(
-            data.title
-          )}`,
-      };
-
-      setRecipe(completeRecipe);
-
-      const aiMessage = usedFallback
-        ? `🎨 Generated a sample recipe: ${completeRecipe.title} (AI quota reached - showing demo recipe)`
-        : `Found it! Try: ${completeRecipe.title}`;
-
+      setRecipe(data.recipe);
       setChatHistory((prev) => [
         ...prev,
         {
           type: "ai",
-          content: aiMessage,
+          content: `Here's your recipe for "${data.recipe.title}"! It serves ${data.recipe.servings || "a few"} and takes about ${data.recipe.prep_time || "some time"} to prep.`,
         },
       ]);
-    } catch (err: unknown) {
-      console.error("Error generating recipe:", err);
 
-      // If all else fails, try mock as last resort
-      try {
-        const fallbackRecipe = await mockGenerateRecipe(validIngredients);
-        setRecipe(fallbackRecipe);
-        setChatHistory((prev) => [
-          ...prev,
-          {
-            type: "ai",
-            content: `⚠️ API Error - Generated a sample recipe: ${fallbackRecipe.title}`,
-          },
-        ]);
-      } catch (mockErr) {
-        console.log(mockErr)
-        setChatHistory((prev) => [
-          ...prev,
-          {
-            type: "ai",
-            content:
-              err instanceof Error
-                ? `Error: ${err.message}. Please check your API key and try again.`
-                : "Sorry, I couldn't generate a recipe right now. Please try again!",
-          },
-        ]);
-      }
+      console.log("🚀 Generating recipe, userId:", userId);
+      console.log("📤 Sending ingredients:", validIngredients);
+
+      // ✅ Trigger sidebar to refresh
+      sidebarRefreshRef.current?.();
+    } catch (err) {
+      console.error("Error:", err);
     } finally {
       setLoading(false);
     }
@@ -219,7 +154,7 @@ export default function RecipeGenerator() {
     const textToSpeak = `Recipe: ${
       recipe.title
     }. Ingredients: ${recipe.ingredients.join(
-      ", "
+      ", ",
     )}. Instructions: ${recipe.instructions.join(". ")}. End of recipe.`;
 
     const utterance = new SpeechSynthesisUtterance(textToSpeak);
@@ -234,7 +169,7 @@ export default function RecipeGenerator() {
           v.lang.startsWith("en") &&
           (v.name.includes("Samantha") ||
             v.name.includes("Google") ||
-            v.name.includes("Zira"))
+            v.name.includes("Zira")),
       );
       utterance.voice =
         preferredVoice || voices.find((v) => v.lang.startsWith("en")) || null;
@@ -275,6 +210,50 @@ export default function RecipeGenerator() {
     };
   }, []);
 
+  // Show loading while checking auth status
+  if (isChecking) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-orange-50">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-4 animate-spin">
+            <div className="w-12 h-12 bg-orange-50 rounded-full"></div>
+          </div>
+          <p className="text-gray-600 font-medium">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show login screen if not logged in
+  if (!isLoggedIn) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-gradient-to-br from-orange-50 via-amber-50 to-yellow-50">
+        <div className="text-center px-6 max-w-md">
+          <div className="w-24 h-24 bg-gradient-to-br from-orange-500 to-red-500 rounded-full flex items-center justify-center mx-auto mb-6 shadow-2xl">
+            <ChefHat className="text-white" size={56} />
+          </div>
+          <h2 className="text-3xl font-extrabold text-gray-800 mb-4">
+            AI Chef Assistant
+          </h2>
+          <p className="text-lg text-gray-600 font-medium mb-8">
+            Please log in to use the ingredient search and recipe generation
+            feature.
+          </p>
+          <button
+            onClick={() => setShowAuthModal(true)}
+            className="w-full bg-gradient-to-r from-orange-500 to-red-500 text-white font-bold py-3 rounded-lg hover:shadow-lg transition-all duration-300"
+          >
+            Login or Sign Up
+          </button>
+        </div>
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+        />
+      </div>
+    );
+  }
+
   return (
     <div className="flex h-screen w-full font-sans bg-orange-50 overflow-hidden">
       {/* Overlay for mobile */}
@@ -287,11 +266,16 @@ export default function RecipeGenerator() {
 
       {/* Sidebar */}
       <HistorySidebar
-        chatHistory={chatHistory}
         handleNewRecipe={handleNewRecipe}
         isOpen={sidebarOpen}
         toggleSidebar={toggleSidebar}
         sidebarWidth={sidebarWidth}
+        onRefresh={(fn) => {
+          sidebarRefreshRef.current = fn;
+        }} // ← pass refresh registrar
+        onSelectSession={(session) => {
+          setRecipe(session.recipe as Recipe);
+        }}
       />
 
       {/* Main Content */}
