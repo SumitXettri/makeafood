@@ -234,7 +234,7 @@ export default function HomePage() {
                 onMouseLeave={() => setHoveredCard(null)}
               >
                 <div className="relative h-56 overflow-hidden">
-                  <Image
+                  <img
                     width={120}
                     height={120}
                     src={recipe.image}

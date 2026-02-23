@@ -192,7 +192,7 @@ export default function Navbar() {
               onClick={() => router.push("/")}
             >
               <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-orange-500 to-red-500 rounded-xl flex items-center justify-center hover:scale-105 transition-transform">
-                <Image
+                <img
                   src="/logo.svg"
                   alt="Logo"
                   width={28}

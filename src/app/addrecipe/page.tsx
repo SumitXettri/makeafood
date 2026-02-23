@@ -26,7 +26,7 @@ export default function SubmitRecipePage() {
   const [cookTime, setCookTime] = useState<number | undefined>();
   const [servings, setServings] = useState<number | undefined>();
   const [difficulty, setDifficulty] = useState<"Easy" | "Medium" | "Hard">(
-    "Easy"
+    "Easy",
   );
 
   // New fields
@@ -163,7 +163,7 @@ export default function SubmitRecipePage() {
 
     if (existing && existing.length > 0) {
       setError(
-        `A recipe with a similar title already exists: "${existing[0].title}".`
+        `A recipe with a similar title already exists: "${existing[0].title}".`,
       );
       setLoading(false);
       return;
@@ -196,8 +196,6 @@ export default function SubmitRecipePage() {
 
     // Prepare instructions as simple JSONB array
     const instructionsJsonb = validInstructions.map((inst) => inst.trim());
-
-    
 
     // Insert recipe with JSONB formatted data
     const { data: recipeData, error: insertError } = await supabase
@@ -277,13 +275,12 @@ export default function SubmitRecipePage() {
               <div className="flex items-center gap-4">
                 {imagePreview ? (
                   <div className="relative">
-                    <Image
+                    <img
                       src={imagePreview || ""}
                       alt="Preview"
                       width={128}
                       height={128}
                       className="w-32 h-32 object-cover rounded-lg"
-                      unoptimized
                     />
                     <button
                       type="button"
@@ -358,28 +355,28 @@ export default function SubmitRecipePage() {
                   <label className="block text-sm font-medium text-gray-700 mb-2">
                     Cuisine Type
                   </label>
-                 
+
                   <select
-            value={cuisine}
+                    value={cuisine}
                     onChange={(e) => setCuisine(e.target.value)}
-            className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none"
-          >
-            <option value="">Select cuisine type</option>
-            <option value="Nepali">Nepali Cuisine</option>
-            <option value="Italian">Italian Cuisine</option>
-            <option value="Chinese">Chinese Cuisine</option>
-            <option value="Indian">Indian Cuisine</option>
-            <option value="Mexican">Mexican Cuisine</option>
-            <option value="French">French Cuisine</option>
-            <option value="Japanese">Japanese Cuisine</option>
-            <option value="Thai">Thai Cuisine</option>
-            <option value="Mediterranean">Mediterranean Cuisine</option>
-            <option value="American">American Cuisine</option>
-            <option value="Baking">Baking & Pastry</option>
-            <option value="Desserts">Desserts</option>
-            <option value="Vegan">Vegan Cuisine</option>
-            <option value="Other">Other</option>
-          </select>
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-orange-500 outline-none"
+                  >
+                    <option value="">Select cuisine type</option>
+                    <option value="Nepali">Nepali Cuisine</option>
+                    <option value="Italian">Italian Cuisine</option>
+                    <option value="Chinese">Chinese Cuisine</option>
+                    <option value="Indian">Indian Cuisine</option>
+                    <option value="Mexican">Mexican Cuisine</option>
+                    <option value="French">French Cuisine</option>
+                    <option value="Japanese">Japanese Cuisine</option>
+                    <option value="Thai">Thai Cuisine</option>
+                    <option value="Mediterranean">Mediterranean Cuisine</option>
+                    <option value="American">American Cuisine</option>
+                    <option value="Baking">Baking & Pastry</option>
+                    <option value="Desserts">Desserts</option>
+                    <option value="Vegan">Vegan Cuisine</option>
+                    <option value="Other">Other</option>
+                  </select>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -457,7 +454,7 @@ export default function SubmitRecipePage() {
                     value={difficulty}
                     onChange={(e) =>
                       setDifficulty(
-                        e.target.value as "Easy" | "Medium" | "Hard"
+                        e.target.value as "Easy" | "Medium" | "Hard",
                       )
                     }
                     className="w-full pl-10 pr-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-orange-500 focus:border-transparent outline-none transition appearance-none bg-white cursor-pointer"
