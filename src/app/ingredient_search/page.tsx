@@ -277,10 +277,10 @@ export default function RecipeGenerator() {
                       <Sparkles className="text-orange-400" size={28} />
                     </div>
                     <h2 className="text-xl font-semibold text-gray-800 mb-2 tracking-tight">
-                      What's in your fridge?
+                      What&apos;s in your fridge?
                     </h2>
                     <p className="text-sm text-gray-400 max-w-xs leading-relaxed">
-                      Add your ingredients below and I'll craft a personalized
+                      Add your ingredients below and I&apos;ll craft a personalized
                       recipe just for you.
                     </p>
                   </div>

@@ -13,7 +13,7 @@ import {
   FaTimes,
 } from "react-icons/fa";
 import { MdOutlineRestaurantMenu } from "react-icons/md";
-import Image from "next/image";
+
 
 export default function SubmitRecipePage() {
   const router = useRouter();
