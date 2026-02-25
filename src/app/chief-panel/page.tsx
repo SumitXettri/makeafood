@@ -138,7 +138,7 @@ export default function ChiefPanel() {
 
       if (error) throw error;
 
-      alert(`Recipe ${approve ? "approved" : "unapproved"} successfully!`);
+      alert(`Recipe ${approve ? "approved" : "deapproved"} successfully!`);
       setSelectedRecipe(null);
       if (chiefData) {
         fetchRecipes(chiefData.expertise_area);
@@ -403,18 +403,27 @@ export default function ChiefPanel() {
                             <Eye className="w-4 h-4" />
                           </button>
                           {!recipe.is_approved ? (
-                            <button
-                              onClick={() => approveRecipe(recipe.id, true)}
-                              className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                              title="Approve"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => approveRecipe(recipe.id, true)}
+                                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                title="Approve"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => deleteRecipe(recipe.id)}
+                                className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                                title="Deapprove"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
                           ) : (
                             <button
-                              onClick={() => approveRecipe(recipe.id, false)}
-                              className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition"
-                              title="Unapprove"
+                              onClick={() => deleteRecipe(recipe.id)}
+                              className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                              title="Deapprove"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -593,19 +602,29 @@ export default function ChiefPanel() {
 
                 <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
                   {!selectedRecipe.is_approved ? (
-                    <button
-                      onClick={() => approveRecipe(selectedRecipe.id, true)}
-                      className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                    >
-                      <Check className="w-5 h-5 inline mr-2" />
-                      Approve Recipe
-                    </button>
+                    <div className="flex gap-3 flex-1">
+                      <button
+                        onClick={() => approveRecipe(selectedRecipe.id, true)}
+                        className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      >
+                        <Check className="w-5 h-5 inline mr-2" />
+                        Approve Recipe
+                      </button>
+                      <button
+                        onClick={() => deleteRecipe(selectedRecipe.id)}
+                        className="flex-1 bg-gradient-to-r from-red-600 to-red-700 text-white py-3 rounded-xl hover:from-red-700 hover:to-red-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      >
+                        <X className="w-5 h-5 inline mr-2" />
+                        Reject Recipe
+                      </button>
+                    </div>
                   ) : (
                     <button
-                      onClick={() => approveRecipe(selectedRecipe.id, false)}
-                      className="flex-1 bg-gradient-to-r from-yellow-600 to-yellow-700 text-white py-3 rounded-xl hover:from-yellow-700 hover:to-yellow-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      onClick={() => deleteRecipe(selectedRecipe.id)}
+                      className="flex-1 bg-gradient-to-r from-red-600 to-red-700 text-white py-3 rounded-xl hover:from-red-700 hover:to-red-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                     >
-                      Unapprove Recipe
+                      <X className="w-5 h-5 inline mr-2" />
+                      Deapprove Recipe
                     </button>
                   )}
                   <button
