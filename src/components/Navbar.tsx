@@ -18,7 +18,6 @@ import {
   Shield,
   ChefHat,
 } from "lucide-react";
-import Image from "next/image";
 import AuthModal from "./AuthModal";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
