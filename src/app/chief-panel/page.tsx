@@ -59,6 +59,13 @@ export default function ChiefPanel() {
   const [statusFilter, setStatusFilter] = useState("pending");
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [showLogoutModal, setShowLogoutModal] = useState(false);
+  const [showNotification, setShowNotification] = useState(false);
+  const [notificationMessage, setNotificationMessage] = useState("");
+  const [notificationType, setNotificationType] = useState<"success" | "error">(
+    "success",
+  );
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [recipeToDelete, setRecipeToDelete] = useState<string | null>(null);
 
   useEffect(() => {
     const checkAuth = async () => {
@@ -138,34 +145,54 @@ export default function ChiefPanel() {
 
       if (error) throw error;
 
-      alert(`Recipe ${approve ? "approved" : "unapproved"} successfully!`);
+      setNotificationMessage(
+        `Recipe ${approve ? "approved" : "deapproved"} successfully!`,
+      );
+      setNotificationType("success");
+      setShowNotification(true);
       setSelectedRecipe(null);
       if (chiefData) {
         fetchRecipes(chiefData.expertise_area);
       }
     } catch (error) {
       console.error("Error updating recipe:", error);
-      alert("Failed to update recipe status");
+      setNotificationMessage("Failed to update recipe status");
+      setNotificationType("error");
+      setShowNotification(true);
     }
   };
 
   const deleteRecipe = async (recipeId: string) => {
-    if (!confirm("Are you sure you want to delete this recipe?")) return;
+    setRecipeToDelete(recipeId);
+    setShowDeleteConfirm(true);
+  };
+
+  const confirmDeleteRecipe = async () => {
+    if (!recipeToDelete) return;
 
     try {
       // Optimistic removal
-      setRecipes((prev) => prev.filter((r) => r.id !== recipeId));
+      setRecipes((prev) => prev.filter((r) => r.id !== recipeToDelete));
 
       const { error } = await supabase
         .from("recipes")
         .delete()
-        .eq("id", recipeId);
+        .eq("id", recipeToDelete);
       if (error) throw error;
 
+      setNotificationMessage("Recipe deleted successfully!");
+      setNotificationType("success");
+      setShowNotification(true);
       setSelectedRecipe(null);
+      setShowDeleteConfirm(false);
+      setRecipeToDelete(null);
     } catch (err) {
       console.error("Error deleting recipe:", err);
-      alert("Failed to delete recipe");
+      setNotificationMessage("Failed to delete recipe");
+      setNotificationType("error");
+      setShowNotification(true);
+      setShowDeleteConfirm(false);
+      setRecipeToDelete(null);
       // Re-fetch to restore state
       if (chiefData) fetchRecipes(chiefData.expertise_area);
     }
@@ -403,18 +430,27 @@ export default function ChiefPanel() {
                             <Eye className="w-4 h-4" />
                           </button>
                           {!recipe.is_approved ? (
-                            <button
-                              onClick={() => approveRecipe(recipe.id, true)}
-                              className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
-                              title="Approve"
-                            >
-                              <Check className="w-4 h-4" />
-                            </button>
+                            <div className="flex gap-2">
+                              <button
+                                onClick={() => approveRecipe(recipe.id, true)}
+                                className="p-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition"
+                                title="Approve"
+                              >
+                                <Check className="w-4 h-4" />
+                              </button>
+                              <button
+                                onClick={() => deleteRecipe(recipe.id)}
+                                className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                                title="Deapprove"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
                           ) : (
                             <button
-                              onClick={() => approveRecipe(recipe.id, false)}
-                              className="p-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition"
-                              title="Unapprove"
+                              onClick={() => deleteRecipe(recipe.id)}
+                              className="p-2 bg-red-600 text-white rounded-lg hover:bg-red-700 transition"
+                              title="Deapprove"
                             >
                               <X className="w-4 h-4" />
                             </button>
@@ -593,19 +629,29 @@ export default function ChiefPanel() {
 
                 <div className="flex gap-3 mt-8 pt-6 border-t border-gray-200">
                   {!selectedRecipe.is_approved ? (
-                    <button
-                      onClick={() => approveRecipe(selectedRecipe.id, true)}
-                      className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
-                    >
-                      <Check className="w-5 h-5 inline mr-2" />
-                      Approve Recipe
-                    </button>
+                    <div className="flex gap-3 flex-1">
+                      <button
+                        onClick={() => approveRecipe(selectedRecipe.id, true)}
+                        className="flex-1 bg-gradient-to-r from-green-600 to-green-700 text-white py-3 rounded-xl hover:from-green-700 hover:to-green-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      >
+                        <Check className="w-5 h-5 inline mr-2" />
+                        Approve Recipe
+                      </button>
+                      <button
+                        onClick={() => deleteRecipe(selectedRecipe.id)}
+                        className="flex-1 bg-gradient-to-r from-red-600 to-red-700 text-white py-3 rounded-xl hover:from-red-700 hover:to-red-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      >
+                        <X className="w-5 h-5 inline mr-2" />
+                        Reject Recipe
+                      </button>
+                    </div>
                   ) : (
                     <button
-                      onClick={() => approveRecipe(selectedRecipe.id, false)}
-                      className="flex-1 bg-gradient-to-r from-yellow-600 to-yellow-700 text-white py-3 rounded-xl hover:from-yellow-700 hover:to-yellow-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
+                      onClick={() => deleteRecipe(selectedRecipe.id)}
+                      className="flex-1 bg-gradient-to-r from-red-600 to-red-700 text-white py-3 rounded-xl hover:from-red-700 hover:to-red-800 transition-all font-semibold shadow-lg hover:shadow-xl transform hover:-translate-y-0.5"
                     >
-                      Unapprove Recipe
+                      <X className="w-5 h-5 inline mr-2" />
+                      Deapprove Recipe
                     </button>
                   )}
                   <button
@@ -617,6 +663,113 @@ export default function ChiefPanel() {
                   </button>
                 </div>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Notification Modal */}
+      {showNotification && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div
+                  className={`w-12 h-12 rounded-full flex items-center justify-center ${
+                    notificationType === "success"
+                      ? "bg-green-100"
+                      : "bg-red-100"
+                  }`}
+                >
+                  {notificationType === "success" ? (
+                    <Check className="text-green-600" size={24} />
+                  ) : (
+                    <X className="text-red-600" size={24} />
+                  )}
+                </div>
+                <div>
+                  <h3
+                    className={`text-xl font-bold ${
+                      notificationType === "success"
+                        ? "text-green-900"
+                        : "text-red-900"
+                    }`}
+                  >
+                    {notificationType === "success" ? "Success" : "Error"}
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    {notificationMessage}
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setShowNotification(false)}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="flex justify-end mt-6">
+              <button
+                onClick={() => setShowNotification(false)}
+                className={`px-6 py-3 rounded-xl font-medium ${
+                  notificationType === "success"
+                    ? "bg-green-600 hover:bg-green-700 text-white"
+                    : "bg-red-600 hover:bg-red-700 text-white"
+                }`}
+              >
+                OK
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {showDeleteConfirm && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6">
+            <div className="flex items-start justify-between mb-4">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 bg-red-100 rounded-full flex items-center justify-center">
+                  <AlertCircle className="text-red-600" size={24} />
+                </div>
+                <div>
+                  <h3 className="text-xl font-bold text-gray-900">
+                    Confirm Delete
+                  </h3>
+                  <p className="text-sm text-gray-600 mt-1">
+                    Are you sure you want to delete this recipe? This action
+                    cannot be undone.
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setRecipeToDelete(null);
+                }}
+                className="text-gray-400 hover:text-gray-600"
+              >
+                <X size={24} />
+              </button>
+            </div>
+            <div className="flex gap-3 mt-6">
+              <button
+                onClick={() => {
+                  setShowDeleteConfirm(false);
+                  setRecipeToDelete(null);
+                }}
+                className="flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700 py-3 rounded-xl font-medium"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={confirmDeleteRecipe}
+                className="flex-1 bg-red-600 hover:bg-red-700 text-white py-3 rounded-xl font-medium"
+              >
+                Delete
+              </button>
             </div>
           </div>
         </div>
