@@ -143,6 +143,27 @@ export default function AuthModal({
       return;
     }
 
+    if (/^\d+$/.test(username)) {
+      setError("Username cannot contain only numbers");
+      return;
+    }
+
+    // Reject emails where local part is only numbers (e.g., 123@gmail.com)
+    const emailParts = email.split("@");
+
+    if (emailParts.length !== 2) {
+      setError("Invalid email format");
+      return;
+    }
+
+    const localPart = emailParts[0];
+
+    // Check if local part is only digits
+    if (/^\d+$/.test(localPart)) {
+      setError("Email cannot contain only numbers!");
+      return;
+    }
+
     setLoading(true);
     // Check if username already exists
     const { data: existingUser, error: usernameError } = await supabase
